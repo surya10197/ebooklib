@@ -803,6 +803,7 @@ class EpubBook(object):
 
         self.templates[name] = value
 
+    #def get_template(self, name):
     def get_template(self, name):
         """
         Returns value for the template.
