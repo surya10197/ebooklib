@@ -58,3 +58,63 @@ def guess_type(extenstion):
         mimetype_initialised = True
 
     return mimetypes.guess_type(extenstion)
+
+
+def create_pagebreak(pageref, label=None, html=True):
+    from ebooklib.epub import NAMESPACES
+
+    pageref_attributes = {
+        '{%s}type' % NAMESPACES['EPUB']: 'pagebreak',
+        'title': u'{}'.format(pageref),
+        'id': u'{}'.format(pageref),
+     }
+
+    pageref_elem = etree.Element('span', pageref_attributes, nsmap={'epub': NAMESPACES['EPUB']})
+
+    if label:
+        pageref_elem.text = label
+
+    if html:
+        return etree.tostring(pageref_elem, encoding='unicode')
+
+    return pageref_elem
+
+
+def get_headers(elem):
+    for n in range(1, 7):
+        headers = elem.xpath('./h{}'.format(n))
+
+        if len(headers) > 0:
+            text = headers[0].text_content().strip()
+            if len(text) > 0:
+                return text
+    return None
+
+
+def get_pages(item):
+    body = parse_html_string(item.get_body_content())
+    pages = []
+
+    for elem in body.iter():
+        if 'epub:type' in elem.attrib:
+            if elem.get('id') is not None:
+                _text = None
+                
+                if elem.text is not None and elem.text.strip() != '':
+                    _text = elem.text.strip()
+
+                if _text is None:
+                    _text = elem.get('aria-label')
+
+                if _text is None:
+                    _text = get_headers(elem)
+
+                pages.append((item.get_name(), elem.get('id'), _text or elem.get('id')))
+
+    return pages
+
+
+def get_pages_for_items(items):
+    pages_from_docs = [get_pages(item) for item in items]
+
+    return [item for pages in pages_from_docs for item in pages]
