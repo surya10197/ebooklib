@@ -1,41 +1,161 @@
-from ebooklib import epub
+import config
+import datetime
+import uuid
 
-book = epub.EpubBook()
+from sqlalchemy.sql import text
+import pymongo
+from ebooklib import epub
+from epub_logger import logger
+from pymongo import MongoClient
+
+
+client = MongoClient('mongodb://juggernaut-admin:d8b5d5b6-e2d0-410b-8f1e-396cea5a9c0c@13.127.239.3:35535')
+db = client['cms']
 
 # set metadata
-book.set_identifier('id123456')
-book.set_title('Sample book')
-book.set_language('en')
+def get_meta_data(ebook, book_id, new_book_id):
+    logger.info('Getting metadata for book:%s', book_id)
+    collection = db['book_details']
+    query = { 'book_id': book_id }
+    books = collection.find(query).sort('version_id', pymongo.DESCENDING).limit(1)
 
-book.add_author('Author Surya')
-book.add_author('Danko Bananko', file_as='Gospodin Danko Bananko', role='ill', uid='coauthor')
+    book = books[0]
+    book_title = book['book_title']
+    ebook.set_title(book_title)
+    ebook.set_language('en')
+    get_author(ebook,book_id, new_book_id)
+    offline_download_url = book['offline_download_url']
+    teaser = book['teaser']
+    synopsis = book['synopsis']
+    page_count = book['page_count']
+    book_size = book['book_size']
+    release_date = book['release_date']
+    cover_image_data = book['cover_image_data']
+    # cover_image_id = book['cover_image_id']
+    version_id = book['version_id']
+    status = book['status']
+    metadata = book['metadata']
+    is_free_read = book['is_free_read'] # make is false
+    author = book['author']
+    book_type = book['book_type']
+    chapter_list = book['chapter_list']
+    chapter_segment_count = book['chapter_segment_count']
+    preview = book['preview']
+    chapter_num = 0
+    for chapter_id in chapter_list:
+        chapter_num += 1
+        content = ''
+        collection = db['chapters']
+        # print 'chapter_id', chapter_id
+        query = {'chapter_id': chapter_id}
+        chapters = collection.find(query)
+        # print 'chapters', chapters[0]
+        chapter_name = chapters[0]['chapter_name']
+        segment_data = chapters[0]['segment_data']
+        for segment_id in segment_data:
+            collection = db['segments']
+            # print 'segment_id:', segment_id
+            query = {'segment_id': segment_id}
+            segments = collection.find(query)
+            for segment in segments:
+                content += segment['content']
+        # print content
+        print chapter_num, new_book_id, book_id
+        add_chapter(ebook, book_id, new_book_id, chapter_name, content, chapter_num)
 
-# create chapter
-c1 = epub.EpubHtml(title='Introduction 1 ', file_name='chap_01.xhtml', lang='hr')
-c1.content=u'<h1>Introduction heading</h1><p>Zaba je skocila u baru.</p>'
+def get_author(ebook, book_id, new_book_id):
+    logger.info('Getting author data for book: %s', book_id)
+    author_name="author name"
+    ebook.add_author(author_name)
+    # return author_name
 
-# add chapter
-book.add_item(c2)
-# define Table Of Contents
-book.toc = (epub.Link('chap_01.xhtml', 'Introduction', 'intro'),
-             (epub.Section('Simple book'),
-             (c1,))
+def add_chapter(ebook, book_id, new_book_id, chapter_name, content, chapter_num):
+    logger.info('Adding chapters for book:%s', book_id)
+    file_name = 'chap_' + str(chapter_num) +'.xhtml'
+    chapter = epub.EpubHtml(title=chapter_name, file_name=file_name, lang='hr')
+    chapter.content = content
+    ebook.add_item(chapter)
+    set_toc(ebook, book_id, new_book_id, chapter, file_name, chapter_name)
+    set_spine(ebook, book_id, new_book_id, chapter)
+
+def set_toc(ebook, book_id, new_book_id, chapter, file_name, chapter_name):
+    logger.info('Setting toc for book:%s', book_id)
+    ebook.toc += (epub.Link(file_name, chapter_name,),
+             (
+                epub.Section('Simple book'),
+                (chapter,)
+             )
             )
 
-# add default NCX and Nav file
-book.add_item(epub.EpubNcx())
-book.add_item(epub.EpubNav())
+def add_ncx_and_nav(ebook, book_id, new_book_id):
+    logger.info('Adding ncx and nav for book:%s', book_id)
+    ebook.add_item(epub.EpubNcx())
+    ebook.add_item(epub.EpubNav())
+    
+def define_css(ebook, book_id, new_book_id):
+    logger.info('Defining css for book:%s', book_id)
+    style = 'BODY {color: white;}'
+    nav_css = epub.EpubItem(uid="style_nav", file_name="style/nav.css", media_type="text/css", content=style)
+    return nav_css
 
-# define CSS style
-style = 'BODY {color: white;}'
-nav_css = epub.EpubItem(uid="style_nav", file_name="style/nav.css", media_type="text/css", content=style)
+def add_css(ebook, book_id, new_book_id):
+    nav_css = define_css(ebook, book_id, new_book_id)
+    ebook.add_item(nav_css)
 
-# add CSS file
-book.add_item(nav_css)
+def set_spine(ebook, book_id, new_book_id, chapter):
+    logger.info('Settign spine for book:%s', book_id)
+    ebook.spine = ['nav', chapter]
 
-# basic spine
-book.spine = ['nav', c1]
-book.spine = ['nav', c2]
+def upload_to_s3(book):
+    logger.info('uploading %s', epub)
 
-# write to the file
-epub.write_epub('test.epub', book, {})
+    logger.info('uploaded successfuly')
+
+
+def convert_to_epub(ebook, book_id, new_book_id):
+    logger.info('Epub conversion started')
+    ebook.set_identifier(new_book_id)
+    get_meta_data(ebook, book_id,new_book_id)
+    add_ncx_and_nav(ebook, book_id, new_book_id)
+    add_css(ebook, book_id, new_book_id)
+    epub_name = new_book_id + ".epub"
+    epub.write_epub(epub_name, ebook, {})
+
+    # upload_to_s3(epub_name)
+    # return book_id
+
+
+def get_book_mapping():
+    book_mappings = config.conn.execute(text("select book_id, new_book_id from book_mappings"))
+    i = 0
+    for book_mapping in book_mappings:
+        ebook = epub.EpubBook()
+        convert_to_epub(ebook=ebook,book_id=book_mapping[0], new_book_id=book_mapping[1])
+        i = i + 1
+        if i == 10:
+            break
+        
+def create_book_mapping():
+    logger.info('Creating book_mappings...')
+    now = datetime.datetime.now()
+    status = 'published'
+    book_type = 'ONE-SHOT'
+    try:
+        books = config.conn.execute(text("select book_id from books where DATA_src=1 and status=:status and book_type=:book_type"),
+                status=status, book_type=book_type)
+        for book in books:
+            book_id=book[0]
+            result = config.conn.execute(text("select 1 from book_mappings where book_id=:book_id"),
+                book_id=book_id)
+            if not result.fetchone():
+                new_book_id = str(uuid.uuid4()).replace('-', '')
+                config.conn.execute(text("insert into book_mappings(book_id, new_book_id) values(:book_id, :new_book_id)"),
+                    book_id=book_id, new_book_id=new_book_id)
+            else:
+                logger.info("book mapping_already exist for book= %s", book_id)
+    except Exception as e:
+        print e
+        logger.info(e)
+
+# create_book_mapping()
+get_book_mapping()
