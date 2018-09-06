@@ -1307,7 +1307,7 @@ class EpubWriter(object):
                         if _content.get('src') == '':
                             _content.set('src', item.href)
 
-                    np = etree.SubElement(itm, 'navPoint', {'id': item.uid})
+                    np = etree.SubElement(itm, 'navPoint', {'id': str(item.uid)})
 
                     if self._play_order['enabled']:
                         _add_play_order(np)
