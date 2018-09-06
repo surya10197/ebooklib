@@ -16,14 +16,14 @@ db = client['cms']
 def get_meta_data(ebook, book_id, new_book_id):
     logger.info('Getting metadata for book:%s', book_id)
     collection = db['book_details']
-    query = { 'book_id': book_id }
+    query = {'book_id': book_id}
     books = collection.find(query).sort('version_id', pymongo.DESCENDING).limit(1)
 
     book = books[0]
     book_title = book['book_title']
     ebook.set_title(book_title)
     ebook.set_language('en')
-    get_author(ebook,book_id, new_book_id)
+    get_author(ebook=ebook, book_id=book_id, new_book_id=new_book_id)
     offline_download_url = book['offline_download_url']
     teaser = book['teaser']
     synopsis = book['synopsis']
@@ -43,7 +43,6 @@ def get_meta_data(ebook, book_id, new_book_id):
     preview = book['preview']
     chapter_num = 0
     for chapter_id in chapter_list:
-        chapter_num += 1
         content = ''
         collection = db['chapters']
         # print 'chapter_id', chapter_id
@@ -60,12 +59,12 @@ def get_meta_data(ebook, book_id, new_book_id):
             for segment in segments:
                 content += segment['content']
         # print content
-        print chapter_num, new_book_id, book_id
-        add_chapter(ebook, book_id, new_book_id, chapter_name, content, chapter_num)
+        chapter_num += 1
+        add_chapter(ebook=ebook, book_id=book_id, new_book_id=new_book_id, chapter_name=chapter_name, content=content, chapter_num=chapter_num)
 
 def get_author(ebook, book_id, new_book_id):
     logger.info('Getting author data for book: %s', book_id)
-    author_name="author name"
+    author_name = 'Surya Kant Verma'
     ebook.add_author(author_name)
     # return author_name
 
@@ -75,14 +74,14 @@ def add_chapter(ebook, book_id, new_book_id, chapter_name, content, chapter_num)
     chapter = epub.EpubHtml(title=chapter_name, file_name=file_name, lang='hr')
     chapter.content = content
     ebook.add_item(chapter)
-    set_toc(ebook, book_id, new_book_id, chapter, file_name, chapter_name)
-    set_spine(ebook, book_id, new_book_id, chapter)
+    set_toc(ebook=ebook, book_id=book_id, new_book_id=new_book_id, chapter=chapter, file_name=file_name, chapter_name=chapter_name)
+    set_spine(ebook=ebook, book_id=book_id, new_book_id=new_book_id, chapter=chapter)
 
 def set_toc(ebook, book_id, new_book_id, chapter, file_name, chapter_name):
     logger.info('Setting toc for book:%s', book_id)
     ebook.toc += (epub.Link(file_name, chapter_name,),
              (
-                epub.Section('Simple book'),
+                epub.Section(chapter_name),
                 (chapter,)
              )
             )
@@ -99,7 +98,7 @@ def define_css(ebook, book_id, new_book_id):
     return nav_css
 
 def add_css(ebook, book_id, new_book_id):
-    nav_css = define_css(ebook, book_id, new_book_id)
+    nav_css = define_css(ebook=ebook, book_id=book_id, new_book_id=new_book_id)
     ebook.add_item(nav_css)
 
 def set_spine(ebook, book_id, new_book_id, chapter):
@@ -115,10 +114,10 @@ def upload_to_s3(book):
 def convert_to_epub(ebook, book_id, new_book_id):
     logger.info('Epub conversion started')
     ebook.set_identifier(new_book_id)
-    get_meta_data(ebook, book_id,new_book_id)
-    add_ncx_and_nav(ebook, book_id, new_book_id)
-    add_css(ebook, book_id, new_book_id)
-    epub_name = new_book_id + ".epub"
+    get_meta_data(ebook=ebook, book_id=book_id, new_book_id=new_book_id)
+    add_ncx_and_nav(ebook=ebook, book_id=book_id, new_book_id=new_book_id)
+    add_css(ebook=ebook, book_id=book_id, new_book_id=new_book_id)
+    epub_name = new_book_id + '.epub'
     epub.write_epub(epub_name, ebook, {})
 
     # upload_to_s3(epub_name)
@@ -127,13 +126,11 @@ def convert_to_epub(ebook, book_id, new_book_id):
 
 def get_book_mapping():
     book_mappings = config.conn.execute(text("select book_id, new_book_id from book_mappings"))
-    i = 0
     for book_mapping in book_mappings:
         ebook = epub.EpubBook()
-        convert_to_epub(ebook=ebook,book_id=book_mapping[0], new_book_id=book_mapping[1])
-        i = i + 1
-        if i == 10:
-            break
+        # print book_mapping[0], book_mapping[1]
+        convert_to_epub(ebook=ebook, book_id=str(book_mapping[0]), new_book_id=str(book_mapping[1]))
+        break
         
 def create_book_mapping():
     logger.info('Creating book_mappings...')
