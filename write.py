@@ -7,13 +7,63 @@ import pymongo
 from ebooklib import epub
 from epub_logger import logger
 from pymongo import MongoClient
+from slugify import slugify
+# from encryption import AESEncryption, generate_encrypted_file
 
-
+# aes = AESEncryption()
 client = MongoClient('mongodb://juggernaut-admin:d8b5d5b6-e2d0-410b-8f1e-396cea5a9c0c@13.127.239.3:35535')
 db = client['cms']
 
+def get_slug(book_id, title, suffix):
+    try:
+        slug = slugify(title)
+    except Exception:
+        slug = "-".join(title.strip().lower().split(' '))
+    if suffix != 0:
+        slug = slug + '-' + str(suffix)
+    result = config.conn.execute(text("select 1 from books where permalink_slug=:slug"),
+            slug=slug)
+    if not result.fetchone():
+        return slug
+    else:
+        suffix = suffix + 1
+        return get_slug(book_id=book_id, title=title, suffix=suffix)
+
 # set metadata
+def generate_preview(book_id, new_book_id, preview):
+    for segment_preview in preview:
+        segment_id = segment_preview['segment_id']
+        collection = db['segments']
+        query = {'segment_id': segment_id}
+        segments = collection.find(query)
+        content = ''
+        for segment in segments:
+            print segment['content']
+            content += segment['content']
+        # print content
+
+        # convert it to html file and save to some location
+        # and upload
+
+
+def generate_preview(book_id, new_book_id, preview):
+    for segment_preview in preview:
+        segment_id = segment_preview['segment_id']
+        collection = db['segments']
+        query = {'segment_id': segment_id}
+        segments = collection.find(query)
+        content = ''
+        for segment in segments:
+            print segment['content']
+            content += segment['content']
+        # print content
+
+        # convert it to html file and save to some location
+        # and upload
+
+
 def get_meta_data(ebook, book_id, new_book_id):
+    now = datetime.datetime.now()
     logger.info('Getting metadata for book:%s', book_id)
     collection = db['book_details']
     query = {'book_id': book_id}
@@ -23,25 +73,65 @@ def get_meta_data(ebook, book_id, new_book_id):
     ebook.set_title(book_title)
     ebook.set_language('en')
     get_author(ebook=ebook, book_id=book_id, new_book_id=new_book_id)
-    # offline_download_url = book['offline_download_url']
+    # offline_download_url = config.TARGET_CDN + new_book_id + '.jzip',
+    teaser = None
     if hasattr(book, 'teaser'):
         teaser = book['teaser']
     synopsis = book['synopsis']
     page_count = book['page_count']
     book_size = book['book_size']
     release_date = book['release_date']
-    cover_image_data = book['cover_image_data']
-    # cover_image_id = book['cover_image_id']
+    cover_image_data = None
+    if hasattr(book, 'cover_image_data'):
+        cover_image_data = book['cover_image_data']
+
+    cover_image_data = config.BOOK_COVER_CDN_PREFIX + book_id + '.jpg',
+    preview_url = config.BOOK_PREVIEW_CDN_PREFIX + new_book_id + '.html',
+    cover_image_id = None
+    if hasattr(book, 'cover_image_id'):
+        cover_image_id = book['cover_image_id']
     version_id = book['version_id']
-    status = book['status']
+    # status = book['status']
     metadata = book['metadata']
-    is_free_read = book['is_free_read'] # make is false
-    author = book['author']
-    book_type = book['book_type']
+    # is_free_read = book['is_free_read'] # make is false
+    # author = book['author']
+    # book_type = book['book_type']
     chapter_list = book['chapter_list']
     chapter_segment_count = book['chapter_segment_count']
     preview = book['preview']
+    generate_preview(book_id=book_id, new_book_id=new_book_id, preview=preview)
+    # generate_encrypted_file(book_id=book_id, new_book_id=new_book_id, aes=aes)
+    # exit(0)
     chapter_num = 0
+    suffix = 0
+    permalink_slug = get_slug(book_id=book_id, title=book_title, suffix=suffix)
+    try:
+        result = config.conn.execute(text("select 1 from books where book_id=:book_id"),
+                                     book_id=book_id)
+        if not result.fetchone():
+            config.conn.execute(text("insert into books(book_id, book_title, created_at, updated_at, is_internal, release_date, status, show_as_coming_soon, permalink_slug, data_src, content_src, language, book_type, is_free_read, is_all_access)"
+                                     " select :new_book_id, book_title, :created_at, :updated_at, is_internal, release_date, 'new', show_as_coming_soon, :permalink_slug, :data_src, content_src, language, book_type, is_free_read, is_all_access"
+                                     " from books where book_id=:book_id"), book_id=book_id, new_book_id=new_book_id, created_at=now, updated_at=now, permalink_slug=permalink_slug,data_src=3)
+        else:
+            logger.info('Book already created :%s', new_book_id)
+    except Exception as e:
+        logger.info('Entry already created old book :%s new book_id:%s', book_id, new_book_id)
+
+    try:
+        result = config.conn.execute(text("select 1 from books where book_id=:book_id"),
+                                     book_id=book_id)
+        if not result.fetchone():
+            config.conn.execute(text("insert into book_meta(version_id, cover_image_data, cover_image_id, teaser, synopsis, page_count, book_size, book_id, ask_the_author, show_chapter_no, is_subscribable)"
+                                     " values (1, :cover_image_data, :cover_image_id, :teaser, :synopsis, :page_count, :book_size, :book_id, :ask_the_author, :show_chapter_no, :is_subscribable)")
+                                , cover_image_data=cover_image_data, cover_image_id=cover_image_id, teaser=teaser, synopsis=synopsis, page_count=page_count, book_size=book_size,book_id=new_book_id,
+                                ask_the_author=False, show_chapter_no=False, is_subscribable=True)
+
+        else:
+            logger.info('Meta info already present for book:%s', new_book_id)
+
+    except Exception as e:
+        logger.info('Entry already created for book_meta old book :%s new book_id:%s', book_id, new_book_id)
+
     for chapter_id in chapter_list:
         content = ''
         collection = db['chapters']
@@ -68,7 +158,6 @@ def get_author(ebook, book_id, new_book_id):
 
 def add_chapter(ebook, book_id, new_book_id, chapter_name, content, chapter_num):
     logger.info('Adding chapters for book:%s', book_id)
-    print 'chap -no' , chapter_num
     file_name = 'chap_' + str(chapter_num) +'.xhtml'
     chapter = epub.EpubHtml(title=chapter_name, file_name=file_name, lang='hr')
     chapter.content = content
@@ -79,12 +168,12 @@ def add_chapter(ebook, book_id, new_book_id, chapter_name, content, chapter_num)
 
 def set_toc(ebook, book_id, new_book_id, chapter, file_name, chapter_name):
     logger.info('Setting toc for book:%s', book_id)
-    ebook.toc = (epub.Link(file_name, chapter_name,)
+    ebook.toc += (epub.Link(file_name, chapter_name,)
                   ,
-             # (
-             #    epub.Section(chapter_name),
-             #    (chapter,)
-             # )
+             (
+                epub.Section(chapter_name),
+                (chapter,)
+             )
             )
 
 
@@ -123,8 +212,9 @@ def convert_to_epub(ebook, book_id, new_book_id):
     get_meta_data(ebook=ebook, book_id=book_id, new_book_id=new_book_id)
     add_ncx_and_nav(ebook=ebook, book_id=book_id, new_book_id=new_book_id)
     add_css(ebook=ebook, book_id=book_id, new_book_id=new_book_id)
-    epub_name = new_book_id + '.epub'
+    epub_name = '/tmp/' + new_book_id + '.epub'
     epub.write_epub(epub_name, ebook, {})
+    print 'done'
 
     # upload_to_s3(epub_name)
     # return book_id
@@ -164,7 +254,7 @@ def create_book_mapping():
         for book_id in book_list:
             books = config.conn.execute(text("select 1 from books where book_id=:book_id and data_src=1 and status=:status and book_type=:book_type"),
                 book_id=book_id, status=status, book_type=book_type)
-            if not books.fetchone():
+            if books.fetchone():
                 result = config.conn.execute(text("select 1 from book_mappings where book_id=:book_id"),
                     book_id=book_id)
                 if not result.fetchone():
@@ -200,5 +290,5 @@ def create_book_mapping():
 #         print e
 #         logger.info(e)
 
-create_book_mapping()
-# get_book_mapping()
+# create_book_mapping()
+get_book_mapping()
