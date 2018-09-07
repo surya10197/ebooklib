@@ -209,6 +209,20 @@ def get_meta_data(ebook, book_id, new_book_id):
     except Exception as e:
         logger.info('Entry already created for book_meta old book :%s new book_id:%s', book_id, new_book_id)
 
+    try:
+        result = config.conn.execute(text("select 1 from book_prices where book_id=:new_book_id"),
+                                     new_book_id=new_book_id)
+        if not result.fetchone():
+            config.conn.execute(text(
+                "insert into book_prices(base_price, base_price_currency, created_at, updated_at, book_id, inclusive_of_taxes, country_codes)"
+                " select base_price, base_price_currency, :created_at, :updated_at, :new_book_id, inclusive_of_taxes, country_codes"
+                " from book_prices where book_id=:book_id"), book_id=book_id, new_book_id=new_book_id, updated_at=now, create_at=now)
+        else:
+            logger.info('Prices Book already created :%s', new_book_id)
+
+    except Exception as e:
+        logger.info('Entry already created for book_meta old book :%s new book_id:%s', book_id, new_book_id)
+
     for chapter_id in chapter_list:
         content = ''
         collection = db['chapters']
