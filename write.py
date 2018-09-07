@@ -19,7 +19,7 @@ jzip = '/tmp/data/jzip/'
 lic = '/tmp/data/lic/'
 html = '/tmp/data/html/'
 
-
+issue_with_books = list()
 def get_slug(book_id, title, suffix):
     try:
         slug = slugify(title)
@@ -285,6 +285,7 @@ def convert_to_epub(ebook, book_id, new_book_id):
         epub.write_epub(epub_name, ebook, {})
     except Exception as e:
         print 'Issue with book :', book_id
+        issue_with_books.append(book_id)
         logger.info('Issue with book %s', book_id)
     # upload_to_s3(epub_name)
 
@@ -339,3 +340,7 @@ def create_book_mapping():
 
 create_book_mapping()
 get_book_mapping()
+
+print 'Issue with books'
+print issue_with_books
+print 'count', len(issue_with_books)
