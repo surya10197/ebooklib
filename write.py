@@ -282,7 +282,11 @@ def convert_to_epub(ebook, book_id, new_book_id):
     add_ncx_and_nav(ebook=ebook, book_id=book_id, new_book_id=new_book_id)
     add_css(ebook=ebook, book_id=book_id, new_book_id=new_book_id)
     epub_name = epub_dir + new_book_id + '.epub'
-    epub.write_epub(epub_name, ebook, {})
+    try:
+        epub.write_epub(epub_name, ebook, {})
+    except Exception as e:
+        print 'Issue with book :', book_id
+        logger.info('Issue with book %s', book_id)
     print 'done'
 
     # upload_to_s3(epub_name)
@@ -359,5 +363,5 @@ def create_book_mapping():
 #         print e
 #         logger.info(e)
 
-# create_book_mapping()
+create_book_mapping()
 get_book_mapping()
