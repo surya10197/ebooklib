@@ -79,7 +79,9 @@ def get_meta_data(ebook, book_id, new_book_id):
     query = {'book_id': book_id}
     books = collection.find(query).sort('version_id', pymongo.DESCENDING).limit(1)
     book = books[0]
-    book_title = book['book_title']
+    book_title = ''
+    if hasattr(book, 'book_title'):
+        book_title = book['book_title']
     ebook.set_title(book_title)
     ebook.set_language('en')
     get_author(ebook=ebook, book_id=book_id, new_book_id=new_book_id)
@@ -87,9 +89,15 @@ def get_meta_data(ebook, book_id, new_book_id):
     teaser = None
     if hasattr(book, 'teaser'):
         teaser = book['teaser']
-    synopsis = book['synopsis']
-    page_count = book['page_count']
-    book_size = book['book_size']
+    synopsis = None
+    if hasattr(book, 'synopsis'):
+        synopsis = book['synopsis']
+    page_count = 0
+    if hasattr(book, 'page_count'):
+        page_count = book['page_count']
+    book_size = None
+    if hasattr(book, 'book_size'):
+        book_size = book['book_size']
     release_date = book['release_date']
     cover_image_data = None
     if hasattr(book, 'cover_image_data'):
@@ -100,9 +108,9 @@ def get_meta_data(ebook, book_id, new_book_id):
     cover_image_id = None
     if hasattr(book, 'cover_image_id'):
         cover_image_id = book['cover_image_id']
-    version_id = book['version_id']
+    # version_id = book['version_id']
     # status = book['status']
-    metadata = book['metadata']
+    # metadata = book['metadata']
     # is_free_read = book['is_free_read'] # make is false
     # author = book['author']
     # book_type = book['book_type']
