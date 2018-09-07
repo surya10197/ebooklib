@@ -271,7 +271,7 @@ def set_toc(ebook, book_id, new_book_id, chapter, file_name, chapter_name):
     #         )
 
     # ebook.toc.append(epub.Link(file_name, chapter_name, 'intro'))
-    ebook.toc.append(epub.Link(file_name, chapter_name,))
+    ebook.toc.append(epub.Link(file_name, chapter_name, 'intro'))
 
 
 def add_ncx_and_nav(ebook, book_id, new_book_id):
@@ -310,7 +310,7 @@ def convert_to_epub(ebook, book_id, new_book_id):
     add_ncx_and_nav(ebook=ebook, book_id=book_id, new_book_id=new_book_id)
     add_css(ebook=ebook, book_id=book_id, new_book_id=new_book_id)
     epub_name = epub_dir + new_book_id + '.epub'
-    ebook.spine = ['nav']
+    ebook.spine.append('nav')
     try:
         epub.write_epub(epub_name, ebook, {})
     except Exception as e:
