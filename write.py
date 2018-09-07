@@ -19,6 +19,7 @@ jzip = '/tmp/data/jzip/'
 lic = '/tmp/data/lic/'
 html = '/tmp/data/html/'
 
+
 def get_slug(book_id, title, suffix):
     try:
         slug = slugify(title)
@@ -91,14 +92,14 @@ def get_meta_data(ebook, book_id, new_book_id):
     # generate_encrypted_file(book_id=book_id, new_book_id=new_book_id, aes=aes)
     chapter_num = 0
     suffix = 0
-    permalink_slug = get_slug(book_id=book_id, title=book_title, suffix=suffix)
+    # permalink_slug = get_slug(book_id=book_id, title=book_title, suffix=suffix)
     try:
         result = config.conn.execute(text("select 1 from books where book_id=:new_book_id"),
                                      new_book_id=new_book_id)
         if not result.fetchone():
             config.conn.execute(text("insert into books(book_id, book_title, created_at, updated_at, is_internal, release_date, status, show_as_coming_soon, permalink_slug, data_src, content_src, language, book_type, is_free_read, is_all_access)"
-                                     " select :new_book_id, book_title, :created_at, :updated_at, is_internal, release_date, 'new', show_as_coming_soon, :permalink_slug, :data_src, content_src, language, book_type, is_free_read, is_all_access"
-                                     " from books where book_id=:book_id"), book_id=book_id, new_book_id=new_book_id, created_at=now, updated_at=now, permalink_slug=permalink_slug,data_src=3)
+                                     " select :new_book_id, book_title, :created_at, :updated_at, is_internal, release_date, 'new', show_as_coming_soon, concate(permalink_slug, '1'), :data_src, content_src, language, book_type, is_free_read, is_all_access"
+                                     " from books where book_id=:book_id"), book_id=book_id, new_book_id=new_book_id, created_at=now, updated_at=now, data_src=3)
         else:
             logger.info('Book already created :%s', new_book_id)
     except Exception as e:
