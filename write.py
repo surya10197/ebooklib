@@ -14,6 +14,8 @@ from slugify import slugify
 client = MongoClient('mongodb://juggernaut-admin:d8b5d5b6-e2d0-410b-8f1e-396cea5a9c0c@13.127.239.3:35535')
 db = client['cms']
 
+base = '/tmp/data/'
+
 def get_slug(book_id, title, suffix):
     try:
         slug = slugify(title)
@@ -47,6 +49,7 @@ def generate_preview(book_id, new_book_id, preview):
 
 
 def generate_preview(book_id, new_book_id, preview):
+    logger.info('Generating Preview for book:%s', new_book_id)
     for segment_preview in preview:
         segment_id = segment_preview['segment_id']
         collection = db['segments']
@@ -56,11 +59,15 @@ def generate_preview(book_id, new_book_id, preview):
         for segment in segments:
             print segment['content']
             content += segment['content']
-        # print content
 
-        # convert it to html file and save to some location
-        # and upload
+        content = content.encode('utf-8')
+        file_name = base + new_book_id + '.html'
 
+        file = open(file_name, "w")
+
+        file.write("<html>" + content + "</html>")
+
+        file.close()
 
 def get_meta_data(ebook, book_id, new_book_id):
     now = datetime.datetime.now()
@@ -212,7 +219,7 @@ def convert_to_epub(ebook, book_id, new_book_id):
     get_meta_data(ebook=ebook, book_id=book_id, new_book_id=new_book_id)
     add_ncx_and_nav(ebook=ebook, book_id=book_id, new_book_id=new_book_id)
     add_css(ebook=ebook, book_id=book_id, new_book_id=new_book_id)
-    epub_name = '/tmp/' + new_book_id + '.epub'
+    epub_name = base + new_book_id + '.epub'
     epub.write_epub(epub_name, ebook, {})
     print 'done'
 
