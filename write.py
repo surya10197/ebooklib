@@ -296,7 +296,7 @@ def get_book_mapping():
         ebook = epub.EpubBook()
         print book_mapping[0], book_mapping[1]
         convert_to_epub(ebook=ebook, book_id=str(book_mapping[0]), new_book_id=str(book_mapping[1]))
-        break
+        # break
 
 def create_book_mapping():
     logger.info('Creating book_mappings...')
