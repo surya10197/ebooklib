@@ -14,10 +14,10 @@ from slugify import slugify
 client = MongoClient('mongodb://juggernaut-admin:d8b5d5b6-e2d0-410b-8f1e-396cea5a9c0c@13.127.239.3:35535')
 db = client['cms']
 
-epub_dir = '/tmp/data/epub/'
-jzip = '/tmp/data/jzip/'
-lic = '/tmp/data/lic/'
-html = '/tmp/data/html/'
+epub_dir = '/media/storage2/data/epub/'
+jzip = '/media/storage2/data/jzip/'
+lic = '/media/storage2/data/lic/'
+html = '/media/storage2/data/html/'
 
 issue_with_books = list()
 def get_slug(book_id, title, suffix):
