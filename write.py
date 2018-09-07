@@ -246,7 +246,7 @@ def get_author(ebook, book_id, new_book_id):
                                  book_id=book_id)
     author_name = ''
     for author in authors:
-        print author
+        # print author
         author_name += author[0]
     ebook.add_author(author_name)
 
