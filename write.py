@@ -34,22 +34,6 @@ def get_slug(book_id, title, suffix):
         suffix = suffix + 1
         return get_slug(book_id=book_id, title=title, suffix=suffix)
 
-# set metadata
-def generate_preview(book_id, new_book_id, preview):
-    for segment_preview in preview:
-        segment_id = segment_preview['segment_id']
-        collection = db['segments']
-        query = {'segment_id': segment_id}
-        segments = collection.find(query)
-        content = ''
-        for segment in segments:
-            # print segment['content']
-            content += segment['content']
-        # print content
-
-        # convert it to html file and save to some location
-        # and upload
-
 
 def generate_preview(book_id, new_book_id, preview):
     logger.info('Generating Preview for book:%s', new_book_id)
@@ -65,12 +49,10 @@ def generate_preview(book_id, new_book_id, preview):
 
         content = content.encode('utf-8')
         file_name = html + new_book_id + '.html'
-
         file = open(file_name, "w")
-
         file.write("<html>" + content + "</html>")
-
         file.close()
+
 
 def get_meta_data(ebook, book_id, new_book_id):
     now = datetime.datetime.now()
@@ -85,7 +67,6 @@ def get_meta_data(ebook, book_id, new_book_id):
     ebook.set_title(book_title)
     ebook.set_language('en')
     get_author(ebook=ebook, book_id=book_id, new_book_id=new_book_id)
-    # offline_download_url = config.TARGET_CDN + new_book_id + '.jzip',
     teaser = None
     if hasattr(book, 'teaser'):
         teaser = book['teaser']
@@ -98,28 +79,16 @@ def get_meta_data(ebook, book_id, new_book_id):
     book_size = None
     if hasattr(book, 'book_size'):
         book_size = book['book_size']
-    release_date = book['release_date']
-    cover_image_data = None
-    if hasattr(book, 'cover_image_data'):
-        cover_image_data = book['cover_image_data']
-
     cover_image_data = config.BOOK_COVER_CDN_PREFIX + book_id + '.jpg',
     preview_url = config.BOOK_PREVIEW_CDN_PREFIX + new_book_id + '.html',
     cover_image_id = None
     if hasattr(book, 'cover_image_id'):
         cover_image_id = book['cover_image_id']
-    # version_id = book['version_id']
-    # status = book['status']
-    # metadata = book['metadata']
-    # is_free_read = book['is_free_read'] # make is false
-    # author = book['author']
-    # book_type = book['book_type']
     chapter_list = book['chapter_list']
     chapter_segment_count = book['chapter_segment_count']
     preview = book['preview']
     generate_preview(book_id=book_id, new_book_id=new_book_id, preview=preview)
     # generate_encrypted_file(book_id=book_id, new_book_id=new_book_id, aes=aes)
-    # exit(0)
     chapter_num = 0
     suffix = 0
     permalink_slug = get_slug(book_id=book_id, title=book_title, suffix=suffix)
@@ -163,7 +132,7 @@ def get_meta_data(ebook, book_id, new_book_id):
             logger.info('Author Book already created :%s', new_book_id)
 
     except Exception as e:
-        logger.info('Entry already created for book_meta old book :%s new book_id:%s', book_id, new_book_id)
+        logger.info('Entry already created for author_books old book :%s new book_id:%s', book_id, new_book_id)
 
     try:
         result = config.conn.execute(text("select 1 from book_tags where book_id=:new_book_id"),
@@ -178,7 +147,7 @@ def get_meta_data(ebook, book_id, new_book_id):
             logger.info('Tag Book already created :%s', new_book_id)
 
     except Exception as e:
-        logger.info('Entry already created for book_meta old book :%s new book_id:%s', book_id, new_book_id)
+        logger.info('Entry already created for book_tags old book :%s new book_id:%s', book_id, new_book_id)
 
     try:
         result = config.conn.execute(text("select 1 from book_publishers where book_id=:new_book_id"),
@@ -193,7 +162,7 @@ def get_meta_data(ebook, book_id, new_book_id):
             logger.info('Publishers Book already created :%s', new_book_id)
 
     except Exception as e:
-        logger.info('Entry already created for book_meta old book :%s new book_id:%s', book_id, new_book_id)
+        logger.info('Entry already created for book_publishers old book :%s new book_id:%s', book_id, new_book_id)
 
     try:
         result = config.conn.execute(text("select 1 from book_area where book_id=:new_book_id"),
@@ -207,7 +176,7 @@ def get_meta_data(ebook, book_id, new_book_id):
             logger.info('Area Book already created :%s', new_book_id)
 
     except Exception as e:
-        logger.info('Entry already created for book_meta old book :%s new book_id:%s', book_id, new_book_id)
+        logger.info('Entry already created for book_area old book :%s new book_id:%s', book_id, new_book_id)
 
     try:
         result = config.conn.execute(text("select 1 from book_prices where book_id=:new_book_id"),
@@ -221,7 +190,7 @@ def get_meta_data(ebook, book_id, new_book_id):
             logger.info('Prices Book already created :%s', new_book_id)
 
     except Exception as e:
-        logger.info('Entry already created for book_meta old book :%s new book_id:%s', book_id, new_book_id)
+        logger.info('Entry already created for book_prices old book :%s new book_id:%s', book_id, new_book_id)
 
     for chapter_id in chapter_list:
         content = ''
@@ -316,10 +285,7 @@ def convert_to_epub(ebook, book_id, new_book_id):
     except Exception as e:
         print 'Issue with book :', book_id
         logger.info('Issue with book %s', book_id)
-    # print 'done'
-
     # upload_to_s3(epub_name)
-    # return book_id
 
 
 def get_book_mapping():
@@ -369,28 +335,6 @@ def create_book_mapping():
                 logger.info('Book not found %s', book_id)
     except Exception as e:
         logger.info(e)
-
-# def create_book_mapping1():
-#     logger.info('Creating book_mappings...')
-#     now = datetime.datetime.now()
-#     status = 'published'
-#     book_type = 'ONE-SHOT'
-#     try:
-#         books = config.conn.execute(text("select book_id from books where data_src=1 and status=:status and book_type=:book_type"),
-#                 status=status, book_type=book_type)
-#         for book in books:
-#             book_id = book[0]
-#             result = config.conn.execute(text("select 1 from book_mappings where book_id=:book_id"),
-#                 book_id=book_id)
-#             if not result.fetchone():
-#                 new_book_id = str(uuid.uuid4()).replace('-', '')
-#                 config.conn.execute(text("insert into book_mappings(book_id, new_book_id) values(:book_id, :new_book_id)"),
-#                     book_id=book_id, new_book_id=new_book_id)
-#             else:
-#                 logger.info("book mapping_already exist for book= %s", book_id)
-#     except Exception as e:
-#         print e
-#         logger.info(e)
 
 create_book_mapping()
 get_book_mapping()
