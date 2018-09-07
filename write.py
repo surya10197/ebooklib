@@ -216,7 +216,7 @@ def get_meta_data(ebook, book_id, new_book_id):
             config.conn.execute(text(
                 "insert into book_prices(base_price, base_price_currency, created_at, updated_at, book_id, inclusive_of_taxes, country_codes)"
                 " select base_price, base_price_currency, :created_at, :updated_at, :new_book_id, inclusive_of_taxes, country_codes"
-                " from book_prices where book_id=:book_id"), book_id=book_id, new_book_id=new_book_id, updated_at=now, create_at=now)
+                " from book_prices where book_id=:book_id"), book_id=book_id, new_book_id=new_book_id, updated_at=now, created_at=now)
         else:
             logger.info('Prices Book already created :%s', new_book_id)
 
@@ -316,7 +316,7 @@ def convert_to_epub(ebook, book_id, new_book_id):
     except Exception as e:
         print 'Issue with book :', book_id
         logger.info('Issue with book %s', book_id)
-    print 'done'
+    # print 'done'
 
     # upload_to_s3(epub_name)
     # return book_id
