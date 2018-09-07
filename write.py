@@ -242,9 +242,13 @@ def get_meta_data(ebook, book_id, new_book_id):
 
 def get_author(ebook, book_id, new_book_id):
     logger.info('Getting author data for book: %s', book_id)
-    author_name = 'Iftach Alony'
+    authors = config.conn.execute(text("select name from authors where author_id in (select author_id from author_books where book_id=:book_id)"),
+                                 book_id=book_id)
+    author_name = ''
+    for author in authors:
+        print author
+        author_name += author[0]
     ebook.add_author(author_name)
-    # return author_name
 
 
 def add_chapter(ebook, book_id, new_book_id, chapter_name, content, chapter_num):
