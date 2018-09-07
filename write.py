@@ -259,15 +259,15 @@ def add_chapter(ebook, book_id, new_book_id, chapter_name, content, chapter_num)
 
 def set_toc(ebook, book_id, new_book_id, chapter, file_name, chapter_name):
     logger.info('Setting toc for book:%s', book_id)
-    # ebook.toc += (epub.Link(file_name, chapter_name,)
-    #          #      ,
-    #          # (
-    #          #     epub.Section(chapter_name),
-    #          #    (chapter,)
-    #          # )
-    #         )
+    ebook.toc += (epub.Link(file_name, chapter_name,)
+             #      ,
+             # (
+             #     epub.Section(chapter_name),
+             #    (chapter,)
+             # )
+            )
 
-    ebook.toc.append(epub.Link(file_name, chapter_name,))
+    # ebook.toc.append(epub.Link(file_name, chapter_name,))
 
 
 def add_ncx_and_nav(ebook, book_id, new_book_id):
@@ -307,7 +307,6 @@ def convert_to_epub(ebook, book_id, new_book_id):
     add_css(ebook=ebook, book_id=book_id, new_book_id=new_book_id)
     epub_name = epub_dir + new_book_id + '.epub'
     ebook.spine = ['nav']
-    ebook.toc = []
     try:
         epub.write_epub(epub_name, ebook, {})
     except Exception as e:
