@@ -187,7 +187,7 @@ def get_meta_data(ebook, book_id, new_book_id):
             config.conn.execute(text(
                 "insert into book_publishers(created_at, updated_at, book_id, publisher_id)"
                 " select created_at, updated_at, :new_book_id, publisher_id"
-                " from book_tags where book_id=:book_id"), book_id=book_id, new_book_id=new_book_id, created_at=now,
+                " from book_publishers where book_id=:book_id"), book_id=book_id, new_book_id=new_book_id, created_at=now,
                 updated_at=now)
         else:
             logger.info('Publishers Book already created :%s', new_book_id)
