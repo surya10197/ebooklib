@@ -80,7 +80,7 @@ def get_meta_data(ebook, book_id, new_book_id):
     book_size = None
     if hasattr(book, 'book_size'):
         book_size = book['book_size']
-    cover_image_data = config.BOOK_COVER_CDN_PREFIX + book_id + '.jpg',
+    cover_image_data = config.BOOK_COVER_CDN_PREFIX + new_book_id + '.jpg',
     preview_url = config.BOOK_PREVIEW_CDN_PREFIX + new_book_id + '.html',
     cover_image_id = None
     if hasattr(book, 'cover_image_id'):
@@ -101,8 +101,10 @@ def get_meta_data(ebook, book_id, new_book_id):
                                      " select :new_book_id, book_title, :created_at, :updated_at, is_internal, release_date, 'new', show_as_coming_soon, concate(permalink_slug, '1'), :data_src, content_src, language, book_type, is_free_read, is_all_access"
                                      " from books where book_id=:book_id"), book_id=book_id, new_book_id=new_book_id, created_at=now, updated_at=now, data_src=3)
         else:
+            print 'Book already created :%s', new_book_id
             logger.info('Book already created :%s', new_book_id)
     except Exception as e:
+        print 'Entry already created old book :%s new book_id:%s', book_id, new_book_id
         logger.info('Entry already created old book :%s new book_id:%s', book_id, new_book_id)
 
     try:
@@ -115,9 +117,11 @@ def get_meta_data(ebook, book_id, new_book_id):
                                 ask_the_author=False, show_chapter_no=False, is_subscribable=True)
 
         else:
+            print 'Meta info already present for book:%s', new_book_id
             logger.info('Meta info already present for book:%s', new_book_id)
 
     except Exception as e:
+        print 'Entry already created for book_meta old book :%s new book_id:%s', book_id, new_book_id
         logger.info('Entry already created for book_meta old book :%s new book_id:%s', book_id, new_book_id)
 
     try:
@@ -130,9 +134,11 @@ def get_meta_data(ebook, book_id, new_book_id):
                 " from author_books where book_id=:book_id"), book_id=book_id, new_book_id=new_book_id, created_at=now,
                                 updated_at=now)
         else:
+            print 'Author Book already created :%s', new_book_id
             logger.info('Author Book already created :%s', new_book_id)
 
     except Exception as e:
+        print 'Entry already created for author_books old book :%s new book_id:%s', book_id, new_book_id
         logger.info('Entry already created for author_books old book :%s new book_id:%s', book_id, new_book_id)
 
     try:
@@ -145,6 +151,7 @@ def get_meta_data(ebook, book_id, new_book_id):
                 " from book_tags where book_id=:book_id"), book_id=book_id, new_book_id=new_book_id, created_at=now,
                 updated_at=now)
         else:
+            print 'Tag Book already created :%s', new_book_id
             logger.info('Tag Book already created :%s', new_book_id)
 
     except Exception as e:
