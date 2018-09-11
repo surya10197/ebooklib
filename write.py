@@ -15,49 +15,49 @@ client = MongoClient('mongodb://juggernaut-admin:d8b5d5b6-e2d0-410b-8f1e-396cea5
 db = client['cms']
 
 epub_dir = '/media/storage2/data/epub/'
-jzip = '/media/storage2/data/jzip/'
-lic = '/media/storage2/data/lic/'
-html = '/media/storage2/data/html/'
+# jzip = '/media/storage2/data/jzip/'
+# lic = '/media/storage2/data/lic/'
+# html = '/media/storage2/data/html/'
 
 issue_with_books = list()
-def get_slug(book_id, title, suffix):
-    try:
-        slug = slugify(title)
-    except Exception:
-        slug = "-".join(title.strip().lower().split(' '))
-    if suffix != 0:
-        slug = slug + '-' + str(suffix)
-    result = config.conn.execute(text("select 1 from books where permalink_slug=:slug"),
-            slug=slug)
-    if not result.fetchone():
-        return slug
-    else:
-        suffix = suffix + 1
-        return get_slug(book_id=book_id, title=title, suffix=suffix)
+# def get_slug(book_id, title, suffix):
+#     try:
+#         slug = slugify(title)
+#     except Exception:
+#         slug = "-".join(title.strip().lower().split(' '))
+#     if suffix != 0:
+#         slug = slug + '-' + str(suffix)
+#     result = config.conn.execute(text("select 1 from books where permalink_slug=:slug"),
+#             slug=slug)
+#     if not result.fetchone():
+#         return slug
+#     else:
+#         suffix = suffix + 1
+#         return get_slug(book_id=book_id, title=title, suffix=suffix)
 
 
-def generate_preview(book_id, new_book_id, preview):
-    logger.info('Generating Preview for book:%s', new_book_id)
-    for segment_preview in preview:
-        segment_id = segment_preview['segment_id']
-        collection = db['segments']
-        query = {'segment_id': segment_id}
-        segments = collection.find(query)
-        content = ''
-        for segment in segments:
-            # print segment['content']
-            content += segment['content']
-
-        content = content.encode('utf-8')
-        file_name = html + new_book_id + '.html'
-        file = open(file_name, "w")
-        file.write("<html>" + content + "</html>")
-        file.close()
+# def generate_preview(book_id, new_book_id, preview):
+#     logger.info('Generating Preview for book:%s', new_book_id)
+#     for segment_preview in preview:
+#         segment_id = segment_preview['segment_id']
+#         collection = db['segments']
+#         query = {'segment_id': segment_id}
+#         segments = collection.find(query)
+#         content = ''
+#         for segment in segments:
+#             # print segment['content']
+#             content += segment['content']
+#
+#         content = content.encode('utf-8')
+#         file_name = html + new_book_id + '.html'
+#         file = open(file_name, "w")
+#         file.write("<html>" + content + "</html>")
+#         file.close()
 
 
 def get_meta_data(ebook, book_id, new_book_id):
     now = datetime.datetime.now()
-    logger.info('Getting metadata for book:%s', book_id)
+    logger.info('Getting metadata for book book_id: %s and new_book_id:%s', book_id, new_book_id)
     collection = db['book_details']
     query = {'book_id': book_id}
     books = collection.find(query).sort('version_id', pymongo.DESCENDING).limit(1)
@@ -66,12 +66,13 @@ def get_meta_data(ebook, book_id, new_book_id):
     if hasattr(book, 'book_title'):
         book_title = book['book_title']
     ebook.set_title(book_title)
+    # check allowed language
     ebook.set_language('en')
-    get_author(ebook=ebook, book_id=book_id, new_book_id=new_book_id)
-    teaser = None
+    get_set_author(ebook=ebook, book_id=book_id, new_book_id=new_book_id)
+    teaser = ''
     if hasattr(book, 'teaser'):
         teaser = book['teaser']
-    synopsis = None
+    synopsis = ''
     if hasattr(book, 'synopsis'):
         synopsis = book['synopsis']
     page_count = 0
@@ -80,125 +81,126 @@ def get_meta_data(ebook, book_id, new_book_id):
     book_size = None
     if hasattr(book, 'book_size'):
         book_size = book['book_size']
-    cover_image_data = config.BOOK_COVER_CDN_PREFIX + new_book_id + '.jpg',
-    preview_url = config.BOOK_PREVIEW_CDN_PREFIX + new_book_id + '.html',
+    cover_image_data = ''
+    if hasattr(book, 'cover_image_data'):
+        cover_image_data = book['cover_image_data']
+    print book_id, cover_image_data
+    # cover_image_data1 = config.BOOK_COVER_CDN_PREFIX + new_book_id + '.jpg',
+    # preview_url = config.BOOK_PREVIEW_CDN_PREFIX + new_book_id + '.html',
     cover_image_id = None
     if hasattr(book, 'cover_image_id'):
         cover_image_id = book['cover_image_id']
+    print 'cover_image_id', cover_image_id
+    print 'teaser', teaser
+    print 'synopsis', synopsis
     chapter_list = book['chapter_list']
-    chapter_segment_count = book['chapter_segment_count']
-    preview = book['preview']
-    generate_preview(book_id=book_id, new_book_id=new_book_id, preview=preview)
-    # generate_encrypted_file(book_id=book_id, new_book_id=new_book_id, aes=aes)
     chapter_num = 0
-    suffix = 0
-    # permalink_slug = get_slug(book_id=book_id, title=book_title, suffix=suffix)
-    try:
-        result = config.conn.execute(text("select 1 from books where book_id=:new_book_id"),
-                                     new_book_id=new_book_id)
-        if not result.fetchone():
-            config.conn.execute(text("insert into books(book_id, book_title, created_at, updated_at, is_internal, release_date, status, show_as_coming_soon, permalink_slug, data_src, content_src, language, book_type, is_free_read, is_all_access)"
-                                     " select :new_book_id, book_title, :created_at, :updated_at, is_internal, release_date, 'new', show_as_coming_soon, concate(permalink_slug, '1'), :data_src, content_src, language, book_type, is_free_read, is_all_access"
-                                     " from books where book_id=:book_id"), book_id=book_id, new_book_id=new_book_id, created_at=now, updated_at=now, data_src=3)
-        else:
-            print 'Book already created :%s', new_book_id
-            logger.info('Book already created :%s', new_book_id)
-    except Exception as e:
-        print 'Entry already created old book :%s new book_id:%s', book_id, new_book_id
-        logger.info('Entry already created old book :%s new book_id:%s', book_id, new_book_id)
-
-    try:
-        result = config.conn.execute(text("select 1 from book_meta where book_id=:new_book_id"),
-                                     new_book_id=new_book_id)
-        if not result.fetchone():
-            config.conn.execute(text("insert into book_meta(version_id, cover_image_data, cover_image_id, teaser, synopsis, page_count, book_size, book_id, ask_the_author, show_chapter_no, is_subscribable)"
-                                     " values (1, :cover_image_data, :cover_image_id, :teaser, :synopsis, :page_count, :book_size, :new_book_id, :ask_the_author, :show_chapter_no, :is_subscribable)")
-                                , cover_image_data=cover_image_data, cover_image_id=cover_image_id, teaser=teaser, synopsis=synopsis, page_count=page_count, book_size=book_size, new_book_id=new_book_id,
-                                ask_the_author=False, show_chapter_no=False, is_subscribable=True)
-
-        else:
-            print 'Meta info already present for book:%s', new_book_id
-            logger.info('Meta info already present for book:%s', new_book_id)
-
-    except Exception as e:
-        print 'Entry already created for book_meta old book :%s new book_id:%s', book_id, new_book_id
-        logger.info('Entry already created for book_meta old book :%s new book_id:%s', book_id, new_book_id)
-
-    try:
-        result = config.conn.execute(text("select 1 from author_books where book_id=:new_book_id"),
-                                     new_book_id=new_book_id)
-        if not result.fetchone():
-            config.conn.execute(text(
-                "insert into author_books(created_at, updated_at, author_id, book_id)"
-                " select created_at, updated_at, author_id, :new_book_id"
-                " from author_books where book_id=:book_id"), book_id=book_id, new_book_id=new_book_id, created_at=now,
-                                updated_at=now)
-        else:
-            print 'Author Book already created :%s', new_book_id
-            logger.info('Author Book already created :%s', new_book_id)
-
-    except Exception as e:
-        print 'Entry already created for author_books old book :%s new book_id:%s', book_id, new_book_id
-        logger.info('Entry already created for author_books old book :%s new book_id:%s', book_id, new_book_id)
-
-    try:
-        result = config.conn.execute(text("select 1 from book_tags where book_id=:new_book_id"),
-                                     new_book_id=new_book_id)
-        if not result.fetchone():
-            config.conn.execute(text(
-                "insert into book_tags(book_id, tag_id, created_at, updated_at)"
-                " select :new_book_id, tag_id, created_at, updated_at"
-                " from book_tags where book_id=:book_id"), book_id=book_id, new_book_id=new_book_id, created_at=now,
-                updated_at=now)
-        else:
-            print 'Tag Book already created :%s', new_book_id
-            logger.info('Tag Book already created :%s', new_book_id)
-
-    except Exception as e:
-        logger.info('Entry already created for book_tags old book :%s new book_id:%s', book_id, new_book_id)
-
-    try:
-        result = config.conn.execute(text("select 1 from book_publishers where book_id=:new_book_id"),
-                                     new_book_id=new_book_id)
-        if not result.fetchone():
-            config.conn.execute(text(
-                "insert into book_publishers(created_at, updated_at, book_id, publisher_id)"
-                " select created_at, updated_at, :new_book_id, publisher_id"
-                " from book_publishers where book_id=:book_id"), book_id=book_id, new_book_id=new_book_id, created_at=now,
-                updated_at=now)
-        else:
-            logger.info('Publishers Book already created :%s', new_book_id)
-
-    except Exception as e:
-        logger.info('Entry already created for book_publishers old book :%s new book_id:%s', book_id, new_book_id)
-
-    try:
-        result = config.conn.execute(text("select 1 from book_area where book_id=:new_book_id"),
-                                     new_book_id=new_book_id)
-        if not result.fetchone():
-            config.conn.execute(text(
-                "insert into book_area(active, start_date, end_date, area_id, book_id)"
-                " select active, start_date, end_date, area_id, :new_book_id"
-                " from book_tags where book_id=:book_id"), book_id=book_id, new_book_id=new_book_id)
-        else:
-            logger.info('Area Book already created :%s', new_book_id)
-
-    except Exception as e:
-        logger.info('Entry already created for book_area old book :%s new book_id:%s', book_id, new_book_id)
-
-    try:
-        result = config.conn.execute(text("select 1 from book_prices where book_id=:new_book_id"),
-                                     new_book_id=new_book_id)
-        if not result.fetchone():
-            config.conn.execute(text(
-                "insert into book_prices(base_price, base_price_currency, created_at, updated_at, book_id, inclusive_of_taxes, country_codes)"
-                " select base_price, base_price_currency, :created_at, :updated_at, :new_book_id, inclusive_of_taxes, country_codes"
-                " from book_prices where book_id=:book_id"), book_id=book_id, new_book_id=new_book_id, updated_at=now, created_at=now)
-        else:
-            logger.info('Prices Book already created :%s', new_book_id)
-
-    except Exception as e:
-        logger.info('Entry already created for book_prices old book :%s new book_id:%s', book_id, new_book_id)
+    # try:
+    #     result = config.conn.execute(text("select 1 from books where book_id=:new_book_id"),
+    #                                  new_book_id=new_book_id)
+    #     if not result.fetchone():
+    #         config.conn.execute(text("insert into books(book_id, book_title, created_at, updated_at, is_internal, release_date, status, show_as_coming_soon, permalink_slug, data_src, content_src, language, book_type, is_free_read, is_all_access)"
+    #                                  " select :new_book_id, book_title, :created_at, :updated_at, is_internal, release_date, 'new', show_as_coming_soon, concate(permalink_slug, '1'), :data_src, content_src, language, book_type, is_free_read, is_all_access"
+    #                                  " from books where book_id=:book_id"), book_id=book_id, new_book_id=new_book_id, created_at=now, updated_at=now, data_src=3)
+    #     else:
+    #         print 'Book already created :%s', new_book_id
+    #         logger.info('Book already created :%s', new_book_id)
+    # except Exception as e:
+    #     print 'Entry already created old book :%s new book_id:%s', book_id, new_book_id
+    #     logger.info('Entry already created old book :%s new book_id:%s', book_id, new_book_id)
+    #
+    # try:
+    #     result = config.conn.execute(text("select 1 from book_meta where book_id=:new_book_id"),
+    #                                  new_book_id=new_book_id)
+    #     if not result.fetchone():
+    #         config.conn.execute(text("insert into book_meta(version_id, cover_image_data, cover_image_id, teaser, synopsis, page_count, book_size, book_id, ask_the_author, show_chapter_no, is_subscribable)"
+    #                                  " values (1, :cover_image_data, :cover_image_id, :teaser, :synopsis, :page_count, :book_size, :new_book_id, :ask_the_author, :show_chapter_no, :is_subscribable)")
+    #                             , cover_image_data=cover_image_data, cover_image_id=cover_image_id, teaser=teaser, synopsis=synopsis, page_count=page_count, book_size=book_size, new_book_id=new_book_id,
+    #                             ask_the_author=False, show_chapter_no=False, is_subscribable=True)
+    #
+    #     else:
+    #         print 'Meta info already present for book:%s', new_book_id
+    #         logger.info('Meta info already present for book:%s', new_book_id)
+    #
+    # except Exception as e:
+    #     print 'Entry already created for book_meta old book :%s new book_id:%s', book_id, new_book_id
+    #     logger.info('Entry already created for book_meta old book :%s new book_id:%s', book_id, new_book_id)
+    #
+    # try:
+    #     result = config.conn.execute(text("select 1 from author_books where book_id=:new_book_id"),
+    #                                  new_book_id=new_book_id)
+    #     if not result.fetchone():
+    #         config.conn.execute(text(
+    #             "insert into author_books(created_at, updated_at, author_id, book_id)"
+    #             " select created_at, updated_at, author_id, :new_book_id"
+    #             " from author_books where book_id=:book_id"), book_id=book_id, new_book_id=new_book_id, created_at=now,
+    #                             updated_at=now)
+    #     else:
+    #         print 'Author Book already created :%s', new_book_id
+    #         logger.info('Author Book already created :%s', new_book_id)
+    #
+    # except Exception as e:
+    #     print 'Entry already created for author_books old book :%s new book_id:%s', book_id, new_book_id
+    #     logger.info('Entry already created for author_books old book :%s new book_id:%s', book_id, new_book_id)
+    #
+    # try:
+    #     result = config.conn.execute(text("select 1 from book_tags where book_id=:new_book_id"),
+    #                                  new_book_id=new_book_id)
+    #     if not result.fetchone():
+    #         config.conn.execute(text(
+    #             "insert into book_tags(book_id, tag_id, created_at, updated_at)"
+    #             " select :new_book_id, tag_id, created_at, updated_at"
+    #             " from book_tags where book_id=:book_id"), book_id=book_id, new_book_id=new_book_id, created_at=now,
+    #             updated_at=now)
+    #     else:
+    #         print 'Tag Book already created :%s', new_book_id
+    #         logger.info('Tag Book already created :%s', new_book_id)
+    #
+    # except Exception as e:
+    #     logger.info('Entry already created for book_tags old book :%s new book_id:%s', book_id, new_book_id)
+    #
+    # try:
+    #     result = config.conn.execute(text("select 1 from book_publishers where book_id=:new_book_id"),
+    #                                  new_book_id=new_book_id)
+    #     if not result.fetchone():
+    #         config.conn.execute(text(
+    #             "insert into book_publishers(created_at, updated_at, book_id, publisher_id)"
+    #             " select created_at, updated_at, :new_book_id, publisher_id"
+    #             " from book_publishers where book_id=:book_id"), book_id=book_id, new_book_id=new_book_id, created_at=now,
+    #             updated_at=now)
+    #     else:
+    #         logger.info('Publishers Book already created :%s', new_book_id)
+    #
+    # except Exception as e:
+    #     logger.info('Entry already created for book_publishers old book :%s new book_id:%s', book_id, new_book_id)
+    #
+    # try:
+    #     result = config.conn.execute(text("select 1 from book_area where book_id=:new_book_id"),
+    #                                  new_book_id=new_book_id)
+    #     if not result.fetchone():
+    #         config.conn.execute(text(
+    #             "insert into book_area(active, start_date, end_date, area_id, book_id)"
+    #             " select active, start_date, end_date, area_id, :new_book_id"
+    #             " from book_tags where book_id=:book_id"), book_id=book_id, new_book_id=new_book_id)
+    #     else:
+    #         logger.info('Area Book already created :%s', new_book_id)
+    #
+    # except Exception as e:
+    #     logger.info('Entry already created for book_area old book :%s new book_id:%s', book_id, new_book_id)
+    #
+    # try:
+    #     result = config.conn.execute(text("select 1 from book_prices where book_id=:new_book_id"),
+    #                                  new_book_id=new_book_id)
+    #     if not result.fetchone():
+    #         config.conn.execute(text(
+    #             "insert into book_prices(base_price, base_price_currency, created_at, updated_at, book_id, inclusive_of_taxes, country_codes)"
+    #             " select base_price, base_price_currency, :created_at, :updated_at, :new_book_id, inclusive_of_taxes, country_codes"
+    #             " from book_prices where book_id=:book_id"), book_id=book_id, new_book_id=new_book_id, updated_at=now, created_at=now)
+    #     else:
+    #         logger.info('Prices Book already created :%s', new_book_id)
+    #
+    # except Exception as e:
+    #     logger.info('Entry already created for book_prices old book :%s new book_id:%s', book_id, new_book_id)
 
     for chapter_id in chapter_list:
         content = ''
@@ -217,8 +219,8 @@ def get_meta_data(ebook, book_id, new_book_id):
         add_chapter(ebook=ebook, book_id=book_id, new_book_id=new_book_id, chapter_name=chapter_name, content=content, chapter_num=chapter_num)
 
 
-def get_author(ebook, book_id, new_book_id):
-    logger.info('Getting author data for book: %s', book_id)
+def get_set_author(ebook, book_id, new_book_id):
+    logger.info('Getting author data for book book_id: %s and new_book_id:%s', book_id, new_book_id)
     authors = config.conn.execute(text("select name from authors where author_id in (select author_id from author_books where book_id=:book_id)"),
                                  book_id=book_id)
     author_name = ''
@@ -229,7 +231,7 @@ def get_author(ebook, book_id, new_book_id):
 
 
 def add_chapter(ebook, book_id, new_book_id, chapter_name, content, chapter_num):
-    logger.info('Adding chapters for book:%s', book_id)
+    logger.info('Adding chapters for book book_id: %s and new_book_id:%s', book_id, new_book_id)
     file_name = 'chap_' + str(chapter_num) +'.xhtml'
     chapter = epub.EpubHtml(title=chapter_name, file_name=file_name, lang='hr')
     chapter.content = content
@@ -239,7 +241,7 @@ def add_chapter(ebook, book_id, new_book_id, chapter_name, content, chapter_num)
 
 
 def set_toc(ebook, book_id, new_book_id, chapter, file_name, chapter_name):
-    logger.info('Setting toc for book:%s', book_id)
+    logger.info('Setting toc for book book_id: %s and new_book_id:%s', book_id, new_book_id)
     # ebook.toc += (epub.Link(file_name, chapter_name,),
     #                 (
     #                     epub.Section(chapter_name),
@@ -252,49 +254,43 @@ def set_toc(ebook, book_id, new_book_id, chapter, file_name, chapter_name):
 
 
 def add_ncx_and_nav(ebook, book_id, new_book_id):
-    logger.info('Adding ncx and nav for book:%s', book_id)
+    logger.info('Adding ncx and nav for book book_id: %s and new_book_id:%s', book_id, new_book_id)
     ebook.add_item(epub.EpubNcx())
     ebook.add_item(epub.EpubNav())
 
 
 def define_css(ebook, book_id, new_book_id):
-    logger.info('Defining css for book:%s', book_id)
+    logger.info('Defining css for book book_id: %s and new_book_id:%s', book_id, new_book_id)
     style = 'BODY {color: white;}'
     nav_css = epub.EpubItem(uid="style_nav", file_name="style/nav.css", media_type="text/css", content=style)
     return nav_css
 
 
 def add_css(ebook, book_id, new_book_id):
+    logger.info('Adding css for book book_id: %s and new_book_id:%s', book_id, new_book_id)
     nav_css = define_css(ebook=ebook, book_id=book_id, new_book_id=new_book_id)
     ebook.add_item(nav_css)
 
 
 def set_spine(ebook, book_id, new_book_id, chapter):
-    logger.info('Settign spine for book:%s', book_id)
+    logger.info('Settign spine for book book_id: %s and new_book_id:%s', book_id, new_book_id)
     ebook.spine.append(chapter)
 
 
-def upload_to_s3(book):
-    logger.info('uploading %s', epub)
-
-    logger.info('uploaded successfuly')
-
-
 def convert_to_epub(ebook, book_id, new_book_id):
-    logger.info('Epub conversion started')
+    logger.info('Epub conversion started for book book_id: %s and new_book_id:%s', book_id, new_book_id)
     ebook.set_identifier(new_book_id)
     get_meta_data(ebook=ebook, book_id=book_id, new_book_id=new_book_id)
     add_ncx_and_nav(ebook=ebook, book_id=book_id, new_book_id=new_book_id)
     add_css(ebook=ebook, book_id=book_id, new_book_id=new_book_id)
     epub_name = epub_dir + new_book_id + '.epub'
     ebook.spine.append('nav')
-    try:
-        epub.write_epub(epub_name, ebook, {})
-    except Exception as e:
-        print 'Issue with book :', book_id
-        issue_with_books.append(book_id)
-        logger.info('Issue with book %s', book_id)
-    # upload_to_s3(epub_name)
+    # try:
+    #     epub.write_epub(epub_name, ebook, {})
+    # except Exception as e:
+    #     print 'Issue with old book :', book_id
+    #     issue_with_books.append(book_id)
+    #     logger.info('Issue with book book_id: %s and new_book_id:%s', book_id, new_book_id)
 
 
 def get_book_mapping():
@@ -304,7 +300,6 @@ def get_book_mapping():
         ebook = epub.EpubBook()
         print book_mapping[0], book_mapping[1]
         convert_to_epub(ebook=ebook, book_id=str(book_mapping[0]), new_book_id=str(book_mapping[1]))
-        # break
 
 def create_book_mapping():
     logger.info('Creating book_mappings...')
@@ -339,7 +334,7 @@ def create_book_mapping():
                     config.conn.execute(text("insert into book_mappings(book_id, new_book_id) values(:book_id, :new_book_id)"),
                         book_id=book_id, new_book_id=new_book_id)
                 else:
-                    logger.info("book mapping_already exist for book= %s", book_id)
+                    logger.info('book mapping_already exist book book_id: %s and new_book_id:%s', book_id, new_book_id)
             else:
                 logger.info('Book not found %s', book_id)
     except Exception as e:
