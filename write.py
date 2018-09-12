@@ -81,7 +81,7 @@ def get_meta_data(ebook, book_id, new_book_id):
     if synopsis:
         print 'synopsis', synopsis.encode('ascii', 'ignore')
     chapter_list = book.get('chapter_list')
-    print 'chapter_list', chapter_list
+    # print 'chapter_list', chapter_list
     chapter_num = 0
     # try:
     #     result = config.conn.execute(text("select 1 from books where book_id=:new_book_id"),
