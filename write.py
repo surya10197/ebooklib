@@ -62,38 +62,25 @@ def get_meta_data(ebook, book_id, new_book_id):
     query = {'book_id': book_id}
     books = collection.find(query).sort('version_id', pymongo.DESCENDING).limit(1)
     book = books[0]
-    book_title = ''
-    if hasattr(book, 'book_title'):
-        book_title = book['book_title']
+    book_title = book.get('book_title', '')
     ebook.set_title(book_title)
     # check allowed language
     ebook.set_language('en')
     get_set_author(ebook=ebook, book_id=book_id, new_book_id=new_book_id)
-    teaser = ''
-    if hasattr(book, 'teaser'):
-        teaser = book['teaser']
-    synopsis = ''
-    if hasattr(book, 'synopsis'):
-        synopsis = book['synopsis']
-    page_count = 0
-    if hasattr(book, 'page_count'):
-        page_count = book['page_count']
-    book_size = None
-    if hasattr(book, 'book_size'):
-        book_size = book['book_size']
-    cover_image_data = ''
-    if hasattr(book, 'cover_image_data'):
-        cover_image_data = book['cover_image_data']
+    teaser = book.get('teaser', '')
+    synopsis = book.get('synopsis', '')
+    page_count = book.get('page_count', None)
+    book_size = book.get('book_size', None)
+    cover_image_data = book.get('cover_image_data')
     print book_id, cover_image_data
     # cover_image_data1 = config.BOOK_COVER_CDN_PREFIX + new_book_id + '.jpg',
     # preview_url = config.BOOK_PREVIEW_CDN_PREFIX + new_book_id + '.html',
-    cover_image_id = None
-    if hasattr(book, 'cover_image_id'):
-        cover_image_id = book['cover_image_id']
+    cover_image_id = book.get('cover_image_id')
     print 'cover_image_id', cover_image_id
     print 'teaser', teaser
     print 'synopsis', synopsis
-    chapter_list = book['chapter_list']
+    chapter_list = book.get('chapter_list')
+    print 'chapter_list', chapter_list
     chapter_num = 0
     # try:
     #     result = config.conn.execute(text("select 1 from books where book_id=:new_book_id"),
@@ -207,15 +194,16 @@ def get_meta_data(ebook, book_id, new_book_id):
         collection = db['chapters']
         query = {'chapter_id': chapter_id}
         chapters = collection.find(query)
-        segment_data = chapters[0]['segment_data']
+        segment_data = chapters[0].get('segment_data')
         for segment_id in segment_data:
             collection = db['segments']
             query = {'segment_id': segment_id}
             segments = collection.find(query)
             for segment in segments:
-                content += segment['content']
+                content += segment.get('content')
         chapter_num += 1
         chapter_name = 'Chapter ' + str(chapter_num)
+        print 'content', content
         add_chapter(ebook=ebook, book_id=book_id, new_book_id=new_book_id, chapter_name=chapter_name, content=content, chapter_num=chapter_num)
 
 
