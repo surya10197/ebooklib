@@ -78,7 +78,7 @@ def get_meta_data(ebook, book_id, new_book_id):
     cover_image_id = book.get('cover_image_id')
     print 'cover_image_id', cover_image_id
     print 'teaser', teaser
-    print 'synopsis', synopsis
+    print 'synopsis', str(synopsis).encode('utf-8')
     chapter_list = book.get('chapter_list')
     print 'chapter_list', chapter_list
     chapter_num = 0
