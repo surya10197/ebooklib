@@ -11,7 +11,7 @@ import urllib
 import psycopg2
 from slugify import slugify
 # from encryption import AESEncryption, generate_encrypted_file
-doc_conn = psycopg2.connect(database='documents_db', user='admin_juggernaut', password='prod_at_Juggernaut', host='juggernaut-prod-db.c0jiajrvivhv.ap-south-1.rds.amazonaws.com', port='5432', sslmode='require')
+doc_conn = psycopg2.connect(database='documents_db', user='admin_juggernaut', password='prod_at_Juggernaut', host='juggernaut-prod.c0jiajrvivhv.ap-south-1.rds.amazonaws.com', port='5432', sslmode='require')
 # "POSTGRES_CONN_LINK": "postgresql://admin_juggernaut:prod_at_Juggernaut@juggernaut-prod-db.c0jiajrvivhv.ap-south-1.rds.amazonaws.com:5432/juggernaut_prod",
 base_image_url = 'https://www.juggernaut.in/'
 # aes = AESEncryption()
@@ -63,35 +63,42 @@ issue_with_cover_image_ids = list()
 
 def get_s3_key_for_cover_image(cover_image_id):
     cover_image_url = ''
+    found = False
     cur = doc_conn.cursor()
     query = "select s3_key, document_group_id from documents where document_group_id=\'%s\' AND s3_key not like '%%x%%' ;" % cover_image_id
     # print 'query:', query
     cur.execute(query)
     rows = cur.fetchall()
     if len(rows) == 1:
+        found = True
         cover_image_url = rows[0][0]
         # print cover_image_url
     else:
+        found = False
         print 'Issue the query:', query
-        issue_with_cover_image_ids.append(cover_image_id)
+        # issue_with_cover_image_ids.append(cover_image_id)
     cur.close()
-    return cover_image_url
+    return cover_image_url, found
 
 
-def download_image_from_docrepo(book_id, new_book_id, cover_image_id):
+def download_image_from_docrepo(book_id, new_book_id, cover_image_id, cover_image_data):
     try:
         logger.info('Downloading images from docrepo for book book_id: %s and new_book_id:%s', book_id, new_book_id)
-        cover_image_url = get_s3_key_for_cover_image(cover_image_id=cover_image_id)
-        cover_image_url = base_image_url + cover_image_url
-        if cover_image_url:
+        cover_image_url, found = get_s3_key_for_cover_image(cover_image_id=cover_image_id)
+        if found:
+            cover_image_url = base_image_url + cover_image_url
+        elif cover_image_data:
+            cover_image_url = cover_image_data
+
+        if cover_image_url != '':
             resource = urllib.urlopen(cover_image_url)
-            # a=1
+            file_path = cover_image_dir + new_book_id + '.jpg'
+            output = open(file_path, "wb")
+            output.write(resource.read())
+            output.close()
         else:
-            print 'Url not found in document repository for cover_image_id', cover_image_id
-        file_path = cover_image_dir + new_book_id + '.jpg'
-        output = open(file_path, "wb")
-        output.write(resource.read())
-        output.close()
+            issue_with_cover_image_ids.append(cover_image_id)
+
     except Exception as e:
         print 'something wrong...', e
         logger.info(e)
@@ -105,27 +112,38 @@ def get_meta_data(ebook, book_id, new_book_id):
     book = books[0]
     book_title = book.get('book_title', '')
     ebook.set_title(book_title)
-    # check allowed language
+    try:
+        result = config.conn.execute(text("select language from books where book_id=:book_id and status='published' "),
+                                     book_id=book_id)
+        lang = result[0][0]
+        print 'lang', lang, type(lang)
+
+        if lang == 1:
+            ebook.set_language('en')
+        elif lang == 2:
+            ebook.set_language('hi')
+        else:
+            ebook.set_language('en')
+    except Exception as e:
+        ebook.set_language('en')
+        logger.info('Entry already created old book :%s new book_id:%s', book_id, new_book_id)
+
     ebook.set_language('en')
     get_set_author(ebook=ebook, book_id=book_id, new_book_id=new_book_id)
     teaser = book.get('teaser', '')
     synopsis = book.get('synopsis', None)
     page_count = book.get('page_count', None)
     book_size = book.get('book_size', None)
-    cover_image_data = config.BOOK_COVER_CDN_PREFIX + new_book_id + '.jpg',
+    cover_image_data = book.get('cover_image_data', '')
     cover_image_id = book.get('cover_image_id')
     if cover_image_id:
-        # print 'cover_found'
-        download_image_from_docrepo(book_id=book_id, new_book_id=new_book_id, cover_image_id=cover_image_id)
+        download_image_from_docrepo(book_id=book_id, new_book_id=new_book_id, cover_image_id=cover_image_id, cover_image_data=cover_image_data)
     else:
         cover.append(book_id)
-        # print 'cover_not'
-    # print 'teaser', teaser
+    cover_image_data = config.BOOK_COVER_CDN_PREFIX + new_book_id + '.jpg',
     if not synopsis:
         syno.append(book_id)
-        # print 'synopsis:', 'Not Found'
     chapter_list = book.get('chapter_list')
-    # print 'chapter_list', chapter_list
     chapter_num = 0
     # try:
     #     result = config.conn.execute(text("select 1 from books where book_id=:new_book_id"),
@@ -248,7 +266,6 @@ def get_meta_data(ebook, book_id, new_book_id):
                 content += segment.get('content')
         chapter_num += 1
         chapter_name = 'Chapter ' + str(chapter_num)
-        # print 'content', content.encode('ascii', 'ignore')
         add_chapter(ebook=ebook, book_id=book_id, new_book_id=new_book_id, chapter_name=chapter_name, content=content, chapter_num=chapter_num)
 
 
@@ -258,14 +275,13 @@ def get_set_author(ebook, book_id, new_book_id):
                                  book_id=book_id)
     author_name = ''
     for author in authors:
-        # print author
         author_name += author[0]
     ebook.add_author(author_name)
 
 
 def add_chapter(ebook, book_id, new_book_id, chapter_name, content, chapter_num):
     logger.info('Adding chapters for book book_id: %s and new_book_id:%s', book_id, new_book_id)
-    file_name = 'chap_' + str(chapter_num) +'.xhtml'
+    file_name = 'chap_' + str(chapter_num) + '.xhtml'
     chapter = epub.EpubHtml(title=chapter_name, file_name=file_name, lang='hr')
     chapter.content = content
     ebook.add_item(chapter)
@@ -275,14 +291,6 @@ def add_chapter(ebook, book_id, new_book_id, chapter_name, content, chapter_num)
 
 def set_toc(ebook, book_id, new_book_id, chapter, file_name, chapter_name):
     logger.info('Setting toc for book book_id: %s and new_book_id:%s', book_id, new_book_id)
-    # ebook.toc += (epub.Link(file_name, chapter_name,),
-    #                 (
-    #                     epub.Section(chapter_name),
-    #                     (chapter,)
-    #                  )
-    #         )
-
-    # ebook.toc.append(epub.Link(file_name, chapter_name, 'intro'))
     ebook.toc.append(epub.Link(file_name, chapter_name, 'intro'))
 
 
@@ -321,7 +329,6 @@ def convert_to_epub(ebook, book_id, new_book_id):
     # try:
     #     epub.write_epub(epub_name, ebook, {})
     # except Exception as e:
-    #     print 'Issue with old book :', book_id
     #     issue_with_books.append(book_id)
     #     logger.info('Issue with book book_id: %s and new_book_id:%s', book_id, new_book_id)
 
@@ -376,10 +383,9 @@ def create_book_mapping():
 create_book_mapping()
 get_book_mapping()
 
-print 'Issue with books'
-print issue_with_books
-print 'count', len(issue_with_books)
-print 'synopsis not found for books :', len(syno)
+print 'issue_with_books', issue_with_books
+print 'issue_with_books count', len(issue_with_books)
+print 'synopsis not found for books :', syno
 print 'synopsis not found count', len(syno)
 print 'cover id not found for books:', cover
 print 'synopsis not found count', len(cover)
