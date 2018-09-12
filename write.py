@@ -64,7 +64,7 @@ def get_s3_key_for_cover_image(cover_image_id):
     # connect to docrepo... and prepare query
     if cover_image_id:
         cur = doc_conn.cursor()
-        query = "select s3_key, document_group_id from documents where document_group_id in (%s) AND s3_key not like '%%x%%' ;" % val
+        query = "select s3_key, document_group_id from documents where document_group_id in (%s) AND s3_key not like '%%x%%' ;" % cover_image_id
         print 'query:', query
         cur.execute(query)
         rows = cur.fetchall()
