@@ -377,6 +377,7 @@ get_book_mapping()
 print 'Issue with books'
 print issue_with_books
 print 'count', len(issue_with_books)
-print 'syn not found :', len(syno)
-print 'cover id not found :', (cover)
-
+print 'synopsis not found for books :', len(syno)
+print 'synopsis not found count', len(syno)
+print 'cover id not found for books:', cover
+print 'synopsis not found count', len(cover)
