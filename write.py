@@ -13,7 +13,7 @@ from slugify import slugify
 # from encryption import AESEncryption, generate_encrypted_file
 doc_conn = psycopg2.connect(database='documents_db', user='admin_juggernaut', password='prod_at_Juggernaut', host='juggernaut-prod-db.c0jiajrvivhv.ap-south-1.rds.amazonaws.com', port='5432', sslmode='require')
 # "POSTGRES_CONN_LINK": "postgresql://admin_juggernaut:prod_at_Juggernaut@juggernaut-prod-db.c0jiajrvivhv.ap-south-1.rds.amazonaws.com:5432/juggernaut_prod",
-
+base_image_url = 'https://www.juggernaut.in/'
 # aes = AESEncryption()
 client = MongoClient('mongodb://juggernaut-admin:d8b5d5b6-e2d0-410b-8f1e-396cea5a9c0c@13.127.239.3:35535')
 db = client['cms']
@@ -61,37 +61,38 @@ issue_with_books = list()
 #         file.close()
 
 def get_s3_key_for_cover_image(cover_image_id):
-    # connect to docrepo... and prepare query
-    if cover_image_id:
-        cur = doc_conn.cursor()
-        query = "select s3_key, document_group_id from documents where document_group_id=\'%s\' AND s3_key not like '%%x%%' ;" % cover_image_id
-        print 'query:', query
-        cur.execute(query)
-        rows = cur.fetchall()
-        for row in rows:
-            print row
-        print 'rows', len(rows)
-        cur.close()
-    # else:
-    #     return
-    # return ''
+    cover_image_url = ''
+    cur = doc_conn.cursor()
+    query = "select s3_key, document_group_id from documents where document_group_id=\'%s\' AND s3_key not like '%%x%%' ;" % cover_image_id
+    print 'query:', query
+    cur.execute(query)
+    rows = cur.fetchall()
+    if len(rows) == 1:
+        cover_image_url = rows[0][0]
+        print cover_image_url
+    else:
+        print 'something wrong with the query'
+    cur.close()
+    return cover_image_url
+
 
 def download_image_from_docrepo(book_id, new_book_id, cover_image_id):
     try:
         logger.info('Downloading images from docrepo for book book_id: %s and new_book_id:%s', book_id, new_book_id)
         cover_image_url = get_s3_key_for_cover_image(cover_image_id=cover_image_id)
+        cover_image_url = base_image_url + cover_image_url
         if cover_image_url:
-            # resource = urllib.urlopen(cover_image_url)
-            a=1
+            resource = urllib.urlopen(cover_image_url)
+            # a=1
         else:
-            print 'url nor found in doc repo for cover_image_id', cover_image_id
+            print 'Url not found in document repository for cover_image_id', cover_image_id
         file_path = cover_image_dir + new_book_id + '.jpg'
         output = open(file_path, "wb")
-        # output.write(resource.read())
+        output.write(resource.read())
         output.close()
     except Exception as e:
-        print e
-        logger.info('')
+        print 'something wrong...', e
+        logger.info(e)
 
 def get_meta_data(ebook, book_id, new_book_id):
     now = datetime.datetime.now()
