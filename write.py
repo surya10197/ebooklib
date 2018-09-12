@@ -64,14 +64,14 @@ def get_s3_key_for_cover_image(cover_image_id):
     cover_image_url = ''
     cur = doc_conn.cursor()
     query = "select s3_key, document_group_id from documents where document_group_id=\'%s\' AND s3_key not like '%%x%%' ;" % cover_image_id
-    print 'query:', query
+    # print 'query:', query
     cur.execute(query)
     rows = cur.fetchall()
     if len(rows) == 1:
         cover_image_url = rows[0][0]
         print cover_image_url
     else:
-        print 'something wrong with the query'
+        print 'something wrong with the query:', query
     cur.close()
     return cover_image_url
 
