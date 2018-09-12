@@ -14,6 +14,7 @@ from slugify import slugify
 client = MongoClient('mongodb://juggernaut-admin:d8b5d5b6-e2d0-410b-8f1e-396cea5a9c0c@13.127.239.3:35535')
 db = client['cms']
 syn = 0
+cover=0
 epub_dir = '/media/storage2/data/epub/'
 # jzip = '/media/storage2/data/jzip/'
 # lic = '/media/storage2/data/lic/'
@@ -75,7 +76,11 @@ def get_meta_data(ebook, book_id, new_book_id):
     # cover_image_data1 = config.BOOK_COVER_CDN_PREFIX + new_book_id + '.jpg',
     # preview_url = config.BOOK_PREVIEW_CDN_PREFIX + new_book_id + '.html',
     cover_image_id = book.get('cover_image_id')
-    print 'cover_image_id', cover_image_id
+    if cover_image_id:
+        print 'cover_found'
+    else:
+        cover+=1
+        print 'cover_not'
     # print 'teaser', teaser
     if synopsis:
         print 'synopsis:', 'Found'
@@ -338,4 +343,5 @@ print 'Issue with books'
 print issue_with_books
 print 'count', len(issue_with_books)
 print 'syn not found :', syn
+print 'cover id not found :', cover
 
