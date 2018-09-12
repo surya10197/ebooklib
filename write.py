@@ -72,14 +72,16 @@ def get_meta_data(ebook, book_id, new_book_id):
     page_count = book.get('page_count', None)
     book_size = book.get('book_size', None)
     cover_image_data = book.get('cover_image_data')
-    print book_id, cover_image_data
+    print 'cover_image_data : ', cover_image_data
     # cover_image_data1 = config.BOOK_COVER_CDN_PREFIX + new_book_id + '.jpg',
     # preview_url = config.BOOK_PREVIEW_CDN_PREFIX + new_book_id + '.html',
     cover_image_id = book.get('cover_image_id')
     print 'cover_image_id', cover_image_id
-    print 'teaser', teaser
+    # print 'teaser', teaser
     if synopsis:
-        print 'synopsis', synopsis.encode('ascii', 'ignore')
+        print 'synopsis:', 'Found'
+    else:
+        print 'synopsis:', 'Not Found'
     chapter_list = book.get('chapter_list')
     # print 'chapter_list', chapter_list
     chapter_num = 0
