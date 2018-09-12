@@ -68,7 +68,7 @@ def get_meta_data(ebook, book_id, new_book_id):
     ebook.set_language('en')
     get_set_author(ebook=ebook, book_id=book_id, new_book_id=new_book_id)
     teaser = book.get('teaser', '')
-    synopsis = book.get('synopsis', '')
+    synopsis = book.get('synopsis', None)
     page_count = book.get('page_count', None)
     book_size = book.get('book_size', None)
     cover_image_data = book.get('cover_image_data')
