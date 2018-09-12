@@ -26,6 +26,7 @@ epub_dir = '/media/storage2/data/epub/'
 cover_image_dir = '/media/storage2/data/cover/'
 
 issue_with_books = list()
+issue_with_cover_image_ids = list()
 # def get_slug(book_id, title, suffix):
 #     try:
 #         slug = slugify(title)
@@ -69,9 +70,10 @@ def get_s3_key_for_cover_image(cover_image_id):
     rows = cur.fetchall()
     if len(rows) == 1:
         cover_image_url = rows[0][0]
-        print cover_image_url
+        # print cover_image_url
     else:
-        print 'something wrong with the query:', query
+        print 'Issue the query:', query
+        issue_with_cover_image_ids.append(cover_image_id)
     cur.close()
     return cover_image_url
 
@@ -381,3 +383,6 @@ print 'synopsis not found for books :', len(syno)
 print 'synopsis not found count', len(syno)
 print 'cover id not found for books:', cover
 print 'synopsis not found count', len(cover)
+print 'Issue with cover ids:', issue_with_cover_image_ids
+print 'Issue with cover ids count', len(issue_with_cover_image_ids)
+
