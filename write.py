@@ -116,7 +116,7 @@ def get_meta_data(ebook, book_id, new_book_id):
         result = config.conn.execute(text("select language from books where book_id=:book_id and status='published' "),
                                      book_id=book_id)
         for language in result:
-            lang = language
+            lang = language[0]
         print 'lang', lang, type(lang)
 
         if lang == 1:
