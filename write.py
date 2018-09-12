@@ -115,6 +115,7 @@ def get_meta_data(ebook, book_id, new_book_id):
     try:
         result = config.conn.execute(text("select language from books where book_id=:book_id and status='published' "),
                                      book_id=book_id)
+        print result, result[0]
         lang = result[0][0]
         print 'lang', lang, type(lang)
 
@@ -125,6 +126,7 @@ def get_meta_data(ebook, book_id, new_book_id):
         else:
             ebook.set_language('en')
     except Exception as e:
+        print e
         ebook.set_language('en')
         logger.info('Entry already created old book :%s new book_id:%s', book_id, new_book_id)
 
