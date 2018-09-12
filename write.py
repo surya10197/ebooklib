@@ -129,7 +129,7 @@ def get_meta_data(ebook, book_id, new_book_id):
     except Exception as e:
         print e
         ebook.set_language('en')
-        logger.info('Entry already created old book :%s new book_id:%s', book_id, new_book_id)
+        logger.info('Error while fetching language for book :%s new book_id:%s', book_id, new_book_id)
     # setting author
     get_set_author(ebook=ebook, book_id=book_id, new_book_id=new_book_id)
     teaser = book.get('teaser', '')
@@ -152,12 +152,13 @@ def get_meta_data(ebook, book_id, new_book_id):
                                      new_book_id=new_book_id)
         if not result.fetchone():
             config.conn.execute(text("insert into books(book_id, book_title, created_at, updated_at, is_internal, release_date, status, show_as_coming_soon, permalink_slug, data_src, content_src, language, book_type, is_free_read, is_all_access)"
-                                     " select :new_book_id, book_title, :created_at, :updated_at, is_internal, release_date, 'new', show_as_coming_soon, concate(permalink_slug, '1'), :data_src, content_src, language, book_type, is_free_read, is_all_access"
+                                     " select :new_book_id, book_title, :created_at, :updated_at, is_internal, release_date, 'new', show_as_coming_soon, concat(permalink_slug, '1'), :data_src, content_src, language, book_type, is_free_read, is_all_access"
                                      " from books where book_id=:book_id"), book_id=book_id, new_book_id=new_book_id, created_at=now, updated_at=now, data_src=3)
         else:
             print 'Book already created :%s', new_book_id
             logger.info('Book already created :%s', new_book_id)
     except Exception as e:
+        print e
         print 'Entry already created old book :%s new book_id:%s', book_id, new_book_id
         logger.info('Entry already created old book :%s new book_id:%s', book_id, new_book_id)
 
@@ -175,6 +176,7 @@ def get_meta_data(ebook, book_id, new_book_id):
             logger.info('Meta info already present for book:%s', new_book_id)
 
     except Exception as e:
+        print e
         print 'Entry already created for book_meta old book :%s new book_id:%s', book_id, new_book_id
         logger.info('Entry already created for book_meta old book :%s new book_id:%s', book_id, new_book_id)
 
@@ -192,6 +194,7 @@ def get_meta_data(ebook, book_id, new_book_id):
             logger.info('Author Book already created :%s', new_book_id)
 
     except Exception as e:
+        print e
         print 'Entry already created for author_books old book :%s new book_id:%s', book_id, new_book_id
         logger.info('Entry already created for author_books old book :%s new book_id:%s', book_id, new_book_id)
 
@@ -209,6 +212,7 @@ def get_meta_data(ebook, book_id, new_book_id):
             logger.info('Tag Book already created :%s', new_book_id)
 
     except Exception as e:
+        print e
         logger.info('Entry already created for book_tags old book :%s new book_id:%s', book_id, new_book_id)
 
     try:
@@ -224,6 +228,7 @@ def get_meta_data(ebook, book_id, new_book_id):
             logger.info('Publishers Book already created :%s', new_book_id)
 
     except Exception as e:
+        print e
         logger.info('Entry already created for book_publishers old book :%s new book_id:%s', book_id, new_book_id)
 
     try:
@@ -233,11 +238,12 @@ def get_meta_data(ebook, book_id, new_book_id):
             config.conn.execute(text(
                 "insert into book_area(active, start_date, end_date, area_id, book_id)"
                 " select active, start_date, end_date, area_id, :new_book_id"
-                " from book_tags where book_id=:book_id"), book_id=book_id, new_book_id=new_book_id)
+                " from book_area where book_id=:book_id"), book_id=book_id, new_book_id=new_book_id)
         else:
             logger.info('Area Book already created :%s', new_book_id)
 
     except Exception as e:
+        print e
         logger.info('Entry already created for book_area old book :%s new book_id:%s', book_id, new_book_id)
 
     try:
@@ -252,6 +258,7 @@ def get_meta_data(ebook, book_id, new_book_id):
             logger.info('Prices Book already created :%s', new_book_id)
 
     except Exception as e:
+        print e
         logger.info('Entry already created for book_prices old book :%s new book_id:%s', book_id, new_book_id)
 
     for chapter_id in chapter_list:
@@ -342,6 +349,7 @@ def get_book_mapping():
         ebook = epub.EpubBook()
         print book_mapping[0], book_mapping[1]
         convert_to_epub(ebook=ebook, book_id=str(book_mapping[0]), new_book_id=str(book_mapping[1]))
+
 
 def create_book_mapping():
     logger.info('Creating book_mappings...')
