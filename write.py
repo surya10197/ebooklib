@@ -203,7 +203,7 @@ def get_meta_data(ebook, book_id, new_book_id):
                 content += segment.get('content')
         chapter_num += 1
         chapter_name = 'Chapter ' + str(chapter_num)
-        print 'content', content
+        print 'content', content.encode('ascii', 'ignore')
         add_chapter(ebook=ebook, book_id=book_id, new_book_id=new_book_id, chapter_name=chapter_name, content=content, chapter_num=chapter_num)
 
 
