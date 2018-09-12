@@ -13,8 +13,8 @@ from slugify import slugify
 # aes = AESEncryption()
 client = MongoClient('mongodb://juggernaut-admin:d8b5d5b6-e2d0-410b-8f1e-396cea5a9c0c@13.127.239.3:35535')
 db = client['cms']
-syn = 0
-cover=0
+syno = list()
+cover = list()
 epub_dir = '/media/storage2/data/epub/'
 # jzip = '/media/storage2/data/jzip/'
 # lic = '/media/storage2/data/lic/'
@@ -79,13 +79,13 @@ def get_meta_data(ebook, book_id, new_book_id):
     if cover_image_id:
         print 'cover_found'
     else:
-        cover+=1
+        cover.append(book_id)
         print 'cover_not'
     # print 'teaser', teaser
     if synopsis:
         print 'synopsis:', 'Found'
     else:
-        syn += 1
+        syno.append(book_id)
         print 'synopsis:', 'Not Found'
     chapter_list = book.get('chapter_list')
     # print 'chapter_list', chapter_list
@@ -342,6 +342,6 @@ get_book_mapping()
 print 'Issue with books'
 print issue_with_books
 print 'count', len(issue_with_books)
-print 'syn not found :', syn
-print 'cover id not found :', cover
+print 'syn not found :', len(syno)
+print 'cover id not found :', (cover)
 
