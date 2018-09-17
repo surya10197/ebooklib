@@ -39,7 +39,24 @@ def get_s3_key_for_cover_image(cover_image_id):
     return cover_image_url, found
 
 
-def download_image_from_docrepo(book_id, new_book_id, cover_image_id, cover_image_data):
+def set_book_cover(ebook, book_id, new_book_id, file_path):
+    # add cover image
+    try:
+        logger.info('setting cover for book old book_id:%s new_book_id:%s ', book_id, new_book_id)
+        ebook.set_cover("image.jpg", open(file_path, 'rb').read())
+        chapter_name = 'Cover'
+        file_name = 'cover.xhtml'
+        chapter = epub.EpubHtml(title=chapter_name, file_name=file_name)
+        chapter.content = '<html><p><img src="image.jpg" alt="Cover Image"/></p></html>'
+        ebook.add_item(chapter)
+        ebook.spine.append('cover')
+        ebook.spine.append(chapter)
+        ebook.toc.append(epub.Link(file_name, chapter_name, 'intro'))
+    except Exception as e:
+        print e
+
+
+def download_image_from_docrepo(ebook, book_id, new_book_id, cover_image_id, cover_image_data):
     try:
         logger.info('Downloading images from docrepo for book book_id: %s and new_book_id:%s', book_id, new_book_id)
         cover_image_url, found = get_s3_key_for_cover_image(cover_image_id=cover_image_id)
@@ -54,6 +71,7 @@ def download_image_from_docrepo(book_id, new_book_id, cover_image_id, cover_imag
             output = open(file_path, "wb")
             output.write(resource.read())
             output.close()
+            set_book_cover(ebook=ebook, book_id=book_id, new_book_id=new_book_id, file_path=file_path)
         else:
             issue_with_cover_image_ids.append(cover_image_id)
 
@@ -97,7 +115,7 @@ def get_meta_data(ebook, book_id, new_book_id):
     cover_image_data = book.get('cover_image_data', '')
     cover_image_id = book.get('cover_image_id')
     if cover_image_id:
-        download_image_from_docrepo(book_id=book_id, new_book_id=new_book_id, cover_image_id=cover_image_id, cover_image_data=cover_image_data)
+        download_image_from_docrepo(ebook=ebook, book_id=book_id, new_book_id=new_book_id, cover_image_id=cover_image_id, cover_image_data=cover_image_data)
     else:
         cover.append(book_id)
     cover_image_data = config.BOOK_COVER_CDN_PREFIX + new_book_id + '.jpg',
@@ -249,7 +267,7 @@ def get_set_author(ebook, book_id, new_book_id):
 def add_chapter(ebook, book_id, new_book_id, chapter_name, content, chapter_num):
     logger.info('Adding chapters for book book_id: %s and new_book_id:%s', book_id, new_book_id)
     file_name = 'chap_' + str(chapter_num) + '.xhtml'
-    chapter = epub.EpubHtml(title=chapter_name, file_name=file_name, lang='hr')
+    chapter = epub.EpubHtml(title=chapter_name, file_name=file_name)
     chapter.content = content
     ebook.add_item(chapter)
     set_toc(ebook=ebook, book_id=book_id, new_book_id=new_book_id, chapter=chapter, file_name=file_name, chapter_name=chapter_name)
@@ -259,7 +277,6 @@ def add_chapter(ebook, book_id, new_book_id, chapter_name, content, chapter_num)
 def set_toc(ebook, book_id, new_book_id, chapter, file_name, chapter_name):
     logger.info('Setting toc for book book_id: %s and new_book_id:%s', book_id, new_book_id)
     ebook.toc.append(epub.Link(file_name, chapter_name, 'intro'))
-
 
 def add_ncx_and_nav(ebook, book_id, new_book_id):
     logger.info('Adding ncx and nav for book book_id: %s and new_book_id:%s', book_id, new_book_id)
@@ -290,12 +307,13 @@ def convert_to_epub(ebook, book_id, new_book_id):
     ebook.set_identifier(new_book_id)
     add_css(ebook=ebook, book_id=book_id, new_book_id=new_book_id)
     epub_name = epub_dir + new_book_id + '.epub'
-    add_ncx_and_nav(ebook=ebook, book_id=book_id, new_book_id=new_book_id)
     ebook.spine.append('nav')
     get_meta_data(ebook=ebook, book_id=book_id, new_book_id=new_book_id)
+    add_ncx_and_nav(ebook=ebook, book_id=book_id, new_book_id=new_book_id)
     try:
         epub.write_epub(epub_name, ebook, {})
     except Exception as e:
+        print 'writing error', e
         issue_with_books.append(book_id)
         logger.info('Issue with book book_id: %s and new_book_id:%s', book_id, new_book_id)
 
@@ -307,7 +325,7 @@ def get_book_mapping():
         ebook = epub.EpubBook()
         print book_mapping[0], book_mapping[1]
         convert_to_epub(ebook=ebook, book_id=str(book_mapping[0]), new_book_id=str(book_mapping[1]))
-        # break
+        break
 
 def create_book_mapping():
     logger.info('Creating book_mappings...')
