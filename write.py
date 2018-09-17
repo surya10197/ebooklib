@@ -9,74 +9,32 @@ from epub_logger import logger
 from pymongo import MongoClient
 import urllib
 import psycopg2
-from slugify import slugify
-# from encryption import AESEncryption, generate_encrypted_file
+
 doc_conn = psycopg2.connect(database='documents_db', user='admin_juggernaut', password='prod_at_Juggernaut', host='juggernaut-prod.c0jiajrvivhv.ap-south-1.rds.amazonaws.com', port='5432', sslmode='require')
-# "POSTGRES_CONN_LINK": "postgresql://admin_juggernaut:prod_at_Juggernaut@juggernaut-prod-db.c0jiajrvivhv.ap-south-1.rds.amazonaws.com:5432/juggernaut_prod",
 base_image_url = 'https://www.juggernaut.in/'
-# aes = AESEncryption()
 client = MongoClient('mongodb://juggernaut-admin:d8b5d5b6-e2d0-410b-8f1e-396cea5a9c0c@13.127.239.3:35535')
+epub_dir = '/media/storage2/data/epub/'
+cover_image_dir = '/media/storage2/data/cover/'
+
 db = client['cms']
 syno = list()
 cover = list()
-epub_dir = '/media/storage2/data/epub/'
-# jzip = '/media/storage2/data/jzip/'
-# lic = '/media/storage2/data/lic/'
-# html = '/media/storage2/data/html/'
-cover_image_dir = '/media/storage2/data/cover/'
-
 issue_with_books = list()
 issue_with_cover_image_ids = list()
-# def get_slug(book_id, title, suffix):
-#     try:
-#         slug = slugify(title)
-#     except Exception:
-#         slug = "-".join(title.strip().lower().split(' '))
-#     if suffix != 0:
-#         slug = slug + '-' + str(suffix)
-#     result = config.conn.execute(text("select 1 from books where permalink_slug=:slug"),
-#             slug=slug)
-#     if not result.fetchone():
-#         return slug
-#     else:
-#         suffix = suffix + 1
-#         return get_slug(book_id=book_id, title=title, suffix=suffix)
 
-
-# def generate_preview(book_id, new_book_id, preview):
-#     logger.info('Generating Preview for book:%s', new_book_id)
-#     for segment_preview in preview:
-#         segment_id = segment_preview['segment_id']
-#         collection = db['segments']
-#         query = {'segment_id': segment_id}
-#         segments = collection.find(query)
-#         content = ''
-#         for segment in segments:
-#             # print segment['content']
-#             content += segment['content']
-#
-#         content = content.encode('utf-8')
-#         file_name = html + new_book_id + '.html'
-#         file = open(file_name, "w")
-#         file.write("<html>" + content + "</html>")
-#         file.close()
 
 def get_s3_key_for_cover_image(cover_image_id):
     cover_image_url = ''
     found = False
     cur = doc_conn.cursor()
     query = "select s3_key, document_group_id from documents where document_group_id=\'%s\' AND s3_key not like '%%x%%' ;" % cover_image_id
-    # print 'query:', query
     cur.execute(query)
     rows = cur.fetchall()
     if len(rows) == 1:
         found = True
         cover_image_url = rows[0][0]
-        # print cover_image_url
     else:
         found = False
-        print 'Issue the query:', query
-        # issue_with_cover_image_ids.append(cover_image_id)
     cur.close()
     return cover_image_url, found
 
@@ -100,7 +58,7 @@ def download_image_from_docrepo(book_id, new_book_id, cover_image_id, cover_imag
             issue_with_cover_image_ids.append(cover_image_id)
 
     except Exception as e:
-        print 'something wrong...', e
+        print 'something went wrong while downloding images from docrepo...', e
         logger.info(e)
 
 
