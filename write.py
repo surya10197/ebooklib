@@ -123,6 +123,7 @@ def get_meta_data(ebook, book_id, new_book_id):
         syno.append(book_id)
     chapter_list = book.get('chapter_list')
     chapter_num = 0
+    ebook.spine.append('nav')
     try:
         result = config.conn.execute(text("select 1 from books where book_id=:new_book_id"),
                                      new_book_id=new_book_id)
@@ -307,7 +308,6 @@ def convert_to_epub(ebook, book_id, new_book_id):
     ebook.set_identifier(new_book_id)
     add_css(ebook=ebook, book_id=book_id, new_book_id=new_book_id)
     epub_name = epub_dir + new_book_id + '.epub'
-    ebook.spine.append('nav')
     get_meta_data(ebook=ebook, book_id=book_id, new_book_id=new_book_id)
     add_ncx_and_nav(ebook=ebook, book_id=book_id, new_book_id=new_book_id)
     try:
@@ -325,7 +325,6 @@ def get_book_mapping():
         ebook = epub.EpubBook()
         print book_mapping[0], book_mapping[1]
         convert_to_epub(ebook=ebook, book_id=str(book_mapping[0]), new_book_id=str(book_mapping[1]))
-        break
 
 def create_book_mapping():
     logger.info('Creating book_mappings...')
