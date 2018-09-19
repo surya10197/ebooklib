@@ -1,7 +1,7 @@
 import config
 import datetime
 import uuid
-
+import requests
 from sqlalchemy.sql import text
 import pymongo
 from ebooklib import epub
@@ -9,19 +9,32 @@ from epub_logger import logger
 from pymongo import MongoClient
 import urllib
 import psycopg2
+from HTMLParser import HTMLParser
+
+doc_repo_url = 'https://app.juggernaut.in/docs/'
 
 doc_conn = psycopg2.connect(database='documents_db', user='admin_juggernaut', password='prod_at_Juggernaut', host='juggernaut-prod.c0jiajrvivhv.ap-south-1.rds.amazonaws.com', port='5432', sslmode='require')
 base_image_url = 'https://www.juggernaut.in/'
 client = MongoClient('mongodb://juggernaut-admin:d8b5d5b6-e2d0-410b-8f1e-396cea5a9c0c@13.127.239.3:35535')
 epub_dir = '/media/storage2/data/epub/'
 cover_image_dir = '/media/storage2/data/cover/'
+inline_image_dir = '/media/storage2/data/inline/'
 
 db = client['cms']
 syno = list()
 cover = list()
 issue_with_books = list()
 issue_with_cover_image_ids = list()
+inline_image_ids = list()
+faulty_images_tag = list()
 
+
+class MyHTMLParser(HTMLParser):
+    def handle_starttag(self, tag, attrs):
+        if tag == 'img':
+            for attr in attrs:
+                if attr[0] == 'id':
+                    inline_image_ids.append(attr[1])
 
 def get_s3_key_for_cover_image(cover_image_id):
     cover_image_url = ''
@@ -40,19 +53,19 @@ def get_s3_key_for_cover_image(cover_image_id):
 
 
 def set_book_cover(ebook, book_id, new_book_id, file_path):
-    # add cover image
     try:
         logger.info('setting cover for book old book_id:%s new_book_id:%s ', book_id, new_book_id)
-        ebook.set_cover("image.jpg", open(file_path, 'rb').read())
+        ebook.set_cover('image.jpg', open(file_path, 'rb').read())
         chapter_name = 'Cover'
         file_name = 'cover.xhtml'
         chapter = epub.EpubHtml(title=chapter_name, file_name=file_name)
-        chapter.content = '<html><p><img src="image.jpg" alt="Cover Image"/></p></html>'
+        chapter.content = '<p><img src="image.jpg" alt="Cover Image"/></p>'
         ebook.add_item(chapter)
         ebook.spine.append('cover')
         ebook.spine.append(chapter)
         ebook.toc.append(epub.Link(file_name, chapter_name, 'intro'))
     except Exception as e:
+        logger.info(e)
         print e
 
 
@@ -64,7 +77,6 @@ def download_image_from_docrepo(ebook, book_id, new_book_id, cover_image_id, cov
             cover_image_url = base_image_url + cover_image_url
         elif cover_image_data:
             cover_image_url = cover_image_data
-
         if cover_image_url != '':
             resource = urllib.urlopen(cover_image_url)
             file_path = cover_image_dir + new_book_id + '.jpg'
@@ -76,7 +88,7 @@ def download_image_from_docrepo(ebook, book_id, new_book_id, cover_image_id, cov
             issue_with_cover_image_ids.append(cover_image_id)
 
     except Exception as e:
-        print 'something went wrong while downloding images from docrepo...', e
+        print 'something went wrong while downloading images from document repository...', e
         logger.info(e)
 
 
@@ -95,7 +107,6 @@ def get_meta_data(ebook, book_id, new_book_id):
                                      book_id=book_id)
         for language in result:
             lang = language[0]
-
         if lang == 1:
             ebook.set_language('en')
         elif lang == 2:
@@ -244,15 +255,55 @@ def get_meta_data(ebook, book_id, new_book_id):
         query = {'chapter_id': chapter_id}
         chapters = collection.find(query)
         segment_data = chapters[0].get('segment_data')
+        chapter_name = chapters[0].get('chapter_name', None)
+        if chapter_name is None:
+            chapter_name = 'Chapter ' + str(chapter_num)
+        heading = "<h1 align=\"center\">" + chapter_name + "</h1>"
+        content += heading
         for segment_id in segment_data:
             collection = db['segments']
             query = {'segment_id': segment_id}
             segments = collection.find(query)
             for segment in segments:
-                content += segment.get('content')
+                dummy_content = segment.get('content')
+                parser = MyHTMLParser()
+                parser.feed(dummy_content)
+                if cover_image_id in inline_image_ids:
+                    inline_image_ids.remove(cover_image_id)
+                replaced_img_content = replace_img_tag(ebook=ebook, book_id=book_id, new_book_id=new_book_id, dummy_content=dummy_content)
+                content += replaced_img_content
         chapter_num += 1
-        chapter_name = 'Chapter ' + str(chapter_num)
         add_chapter(ebook=ebook, book_id=book_id, new_book_id=new_book_id, chapter_name=chapter_name, content=content, chapter_num=chapter_num)
+
+
+def download_inline_image(ebook, image_id):
+    collection = db['book_images']
+    query = {"image_id": str(image_id)}
+    mydoc = collection.find(query)
+    for doc in mydoc:
+        doc_id = doc.get('doc_id')
+        if doc_id:
+            resp = requests.post(url=doc_repo_url, json={"document_list": [{"document_id": doc_id}]})
+            if resp.ok:
+                url = resp.json().get('data')[0].get('url')
+                if url:
+                    resource = urllib.urlopen(url)
+                    file_path = inline_image_dir + image_id + '.jpg'
+                    output = open(file_path, "wb")
+                    output.write(resource.read())
+                    output.close()
+                    ebook.set_cover(image_id + '.jpg', open(file_path, 'rb').read(), create_page=False)
+
+
+def replace_img_tag(ebook, book_id, new_book_id, dummy_content):
+    logger.info('Updating img tag for book book_id: %s and new_book_id:%s', book_id, new_book_id)
+    for image_id in inline_image_ids:
+        to_check = 'id="{0}"'.format(image_id)
+        to_replace = 'src="{0}.jpg"'.format(image_id)
+        if to_check in dummy_content:
+            dummy_content = dummy_content.replace(to_check, to_replace)
+            download_inline_image(ebook=ebook, image_id=image_id)
+    return dummy_content
 
 
 def get_set_author(ebook, book_id, new_book_id):
@@ -285,7 +336,7 @@ def add_ncx_and_nav(ebook, book_id, new_book_id):
     ebook.add_item(epub.EpubNav())
 
 
-def define_css(ebook, book_id, new_book_id):
+def define_css(book_id, new_book_id):
     logger.info('Defining css for book book_id: %s and new_book_id:%s', book_id, new_book_id)
     style = 'BODY {color: white;}'
     nav_css = epub.EpubItem(uid="style_nav", file_name="style/nav.css", media_type="text/css", content=style)
@@ -294,7 +345,7 @@ def define_css(ebook, book_id, new_book_id):
 
 def add_css(ebook, book_id, new_book_id):
     logger.info('Adding css for book book_id: %s and new_book_id:%s', book_id, new_book_id)
-    nav_css = define_css(ebook=ebook, book_id=book_id, new_book_id=new_book_id)
+    nav_css = define_css(book_id=book_id, new_book_id=new_book_id)
     ebook.add_item(nav_css)
 
 
@@ -326,6 +377,7 @@ def get_book_mapping():
         print book_mapping[0], book_mapping[1]
         convert_to_epub(ebook=ebook, book_id=str(book_mapping[0]), new_book_id=str(book_mapping[1]))
 
+
 def create_book_mapping():
     logger.info('Creating book_mappings...')
     status = 'published'
@@ -350,14 +402,14 @@ def create_book_mapping():
         book_type = 'ONE-SHOT'
         for book_id in book_list:
             books = config.conn.execute(text("select 1 from books where book_id=:book_id and data_src=1 and status=:status and book_type=:book_type"),
-                book_id=book_id, status=status, book_type=book_type)
+                                        book_id=book_id, status=status, book_type=book_type)
             if books.fetchone():
                 result = config.conn.execute(text("select 1 from book_mappings where book_id=:book_id"),
-                    book_id=book_id)
+                                            book_id=book_id)
                 if not result.fetchone():
                     new_book_id = str(uuid.uuid4()).replace('-', '')
                     config.conn.execute(text("insert into book_mappings(book_id, new_book_id) values(:book_id, :new_book_id)"),
-                        book_id=book_id, new_book_id=new_book_id)
+                                        book_id=book_id, new_book_id=new_book_id)
                 else:
                     logger.info('book mapping_already exist book book_id: %s and new_book_id:%s', book_id, new_book_id)
             else:
@@ -365,15 +417,18 @@ def create_book_mapping():
     except Exception as e:
         logger.info(e)
 
+
 create_book_mapping()
 get_book_mapping()
 
-print 'issue_with_books', issue_with_books
-print 'issue_with_books count', len(issue_with_books)
-print 'synopsis not found for books :', syno
-print 'synopsis not found count', len(syno)
-print 'cover id not found for books:', cover
-print 'synopsis not found count', len(cover)
+print 'Issue_with_books:', issue_with_books
+print 'Issue_with_books count:', len(issue_with_books)
+print 'Synopsis not found for books:', syno
+print 'Synopsis not found count:', len(syno)
+print 'Cover id not found for books:', cover
+print 'Cover id not found count:', len(cover)
 print 'Issue with cover ids:', issue_with_cover_image_ids
-print 'Issue with cover ids count', len(issue_with_cover_image_ids)
+print 'Issue with cover ids count:', len(issue_with_cover_image_ids)
+print 'Inline_image_ids:', inline_image_ids
+print 'Inline_image_ids count:', len(inline_image_ids)
 
