@@ -6,21 +6,10 @@ from sqlalchemy.sql import text
 import pymongo
 from ebooklib import epub
 from epub_logger import logger
-from pymongo import MongoClient
+
 import urllib
-import psycopg2
 from HTMLParser import HTMLParser
 
-doc_repo_url = 'https://app.juggernaut.in/docs/'
-
-doc_conn = psycopg2.connect(database='documents_db', user='admin_juggernaut', password='prod_at_Juggernaut', host='juggernaut-prod.c0jiajrvivhv.ap-south-1.rds.amazonaws.com', port='5432', sslmode='require')
-base_image_url = 'https://www.juggernaut.in/'
-client = MongoClient('mongodb://juggernaut-admin:d8b5d5b6-e2d0-410b-8f1e-396cea5a9c0c@13.127.239.3:35535')
-epub_dir = '/media/storage2/data/epub/'
-cover_image_dir = '/media/storage2/data/cover/'
-inline_image_dir = '/media/storage2/data/inline/'
-
-db = client['cms']
 syno = list()
 cover = list()
 issue_with_books = list()
@@ -33,13 +22,14 @@ class MyHTMLParser(HTMLParser):
     def handle_starttag(self, tag, attrs):
         if tag == 'img':
             for attr in attrs:
+                # print attr
                 if attr[0] == 'id':
                     inline_image_ids.append(attr[1])
 
 def get_s3_key_for_cover_image(cover_image_id):
     cover_image_url = ''
     found = False
-    cur = doc_conn.cursor()
+    cur = config.doc_conn.cursor()
     query = "select s3_key, document_group_id from documents where document_group_id=\'%s\' AND s3_key not like '%%x%%' ;" % cover_image_id
     cur.execute(query)
     rows = cur.fetchall()
@@ -74,12 +64,12 @@ def download_image_from_docrepo(ebook, book_id, new_book_id, cover_image_id, cov
         logger.info('Downloading images from docrepo for book book_id: %s and new_book_id:%s', book_id, new_book_id)
         cover_image_url, found = get_s3_key_for_cover_image(cover_image_id=cover_image_id)
         if found:
-            cover_image_url = base_image_url + cover_image_url
+            cover_image_url = config.BASE_IMAGE_URL + cover_image_url
         elif cover_image_data:
             cover_image_url = cover_image_data
         if cover_image_url != '':
             resource = urllib.urlopen(cover_image_url)
-            file_path = cover_image_dir + new_book_id + '.jpg'
+            file_path = config.COVER_IMAGE_DIR + new_book_id + '.jpg'
             output = open(file_path, "wb")
             output.write(resource.read())
             output.close()
@@ -95,7 +85,7 @@ def download_image_from_docrepo(ebook, book_id, new_book_id, cover_image_id, cov
 def get_meta_data(ebook, book_id, new_book_id):
     now = datetime.datetime.now()
     logger.info('Getting metadata for book book_id: %s and new_book_id:%s', book_id, new_book_id)
-    collection = db['book_details']
+    collection = config.db['book_details']
     query = {'book_id': book_id}
     books = collection.find(query).sort('version_id', pymongo.DESCENDING).limit(1)
     book = books[0]
@@ -251,7 +241,7 @@ def get_meta_data(ebook, book_id, new_book_id):
 
     for chapter_id in chapter_list:
         content = ''
-        collection = db['chapters']
+        collection = config.db['chapters']
         query = {'chapter_id': chapter_id}
         chapters = collection.find(query)
         segment_data = chapters[0].get('segment_data')
@@ -261,7 +251,7 @@ def get_meta_data(ebook, book_id, new_book_id):
         heading = "<h1 align=\"center\">" + chapter_name + "</h1>"
         content += heading
         for segment_id in segment_data:
-            collection = db['segments']
+            collection = config.db['segments']
             query = {'segment_id': segment_id}
             segments = collection.find(query)
             for segment in segments:
@@ -277,18 +267,18 @@ def get_meta_data(ebook, book_id, new_book_id):
 
 
 def download_inline_image(ebook, image_id):
-    collection = db['book_images']
+    collection = config.db['book_images']
     query = {"image_id": str(image_id)}
     mydoc = collection.find(query)
     for doc in mydoc:
         doc_id = doc.get('doc_id')
         if doc_id:
-            resp = requests.post(url=doc_repo_url, json={"document_list": [{"document_id": doc_id}]})
+            resp = requests.post(url=config.DOC_REPO_URL, json={"document_list": [{"document_id": doc_id}]})
             if resp.ok:
                 url = resp.json().get('data')[0].get('url')
                 if url:
                     resource = urllib.urlopen(url)
-                    file_path = inline_image_dir + image_id + '.jpg'
+                    file_path = config.INLINE_IMAGE_DIR + image_id + '.jpg'
                     output = open(file_path, "wb")
                     output.write(resource.read())
                     output.close()
@@ -358,7 +348,7 @@ def convert_to_epub(ebook, book_id, new_book_id):
     logger.info('Epub conversion started for book book_id: %s and new_book_id:%s', book_id, new_book_id)
     ebook.set_identifier(new_book_id)
     add_css(ebook=ebook, book_id=book_id, new_book_id=new_book_id)
-    epub_name = epub_dir + new_book_id + '.epub'
+    epub_name = config.EPUB_DIR + new_book_id + '.epub'
     get_meta_data(ebook=ebook, book_id=book_id, new_book_id=new_book_id)
     add_ncx_and_nav(ebook=ebook, book_id=book_id, new_book_id=new_book_id)
     try:
@@ -382,14 +372,14 @@ def create_book_mapping():
     logger.info('Creating book_mappings...')
     status = 'published'
     book_type = 'ONE-SHOT'
-    collection = db['book_details']
+    collection = config.db['book_details']
     query = [{"$match": {"status": status, "book_type": book_type}}, {"$group": {"_id": "$book_id", "version_id": {"$max":"$version_id"}}}]
     all_books = collection.aggregate(query)
     book_list = list()
     for book in all_books:
         book_list.append(book['_id'])
     book_type = 'SERIALIZED'
-    collection = db['book_details']
+    collection = config.db['book_details']
     query = {"status": status, "book_type": book_type}
     books = collection.find(query)
     for b in books:
