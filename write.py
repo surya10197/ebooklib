@@ -83,6 +83,8 @@ def download_image_from_docrepo(ebook, book_id, new_book_id, cover_image_id, cov
 
 
 def get_meta_data(ebook, book_id, new_book_id):
+    global inline_image_ids
+    inline_image_ids = list()
     now = datetime.datetime.now()
     logger.info('Getting metadata for book book_id: %s and new_book_id:%s', book_id, new_book_id)
     collection = config.db['book_details']
