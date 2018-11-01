@@ -10,6 +10,7 @@ from epub_logger import logger
 import urllib
 from HTMLParser import HTMLParser
 
+from bs4 import BeautifulSoup
 syno = list()
 cover = list()
 issue_with_books = list()
@@ -249,7 +250,11 @@ def get_meta_data(ebook, book_id, new_book_id):
         segment_data = chapters[0].get('segment_data')
         chapter_name = chapters[0].get('chapter_name', None)
         if chapter_name is None:
-            chapter_name = 'Chapter ' + str(chapter_num)
+            if chapter_num == 0:
+                chapter_name = 'Preface'
+            else:
+                chapter_name = 'Chapter ' + str(chapter_num)
+        chapter_name = BeautifulSoup(chapter_name, "lxml").text
         heading = "<h1 align=\"center\">" + chapter_name + "</h1>"
         content += heading
         for segment_id in segment_data:
