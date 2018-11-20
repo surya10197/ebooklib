@@ -217,8 +217,8 @@ def get_meta_data(ebook, book_id, new_book_id):
                                      new_book_id=new_book_id)
         if not result.fetchone():
             config.conn.execute(text(
-                "insert into book_area(active, start_date, end_date, area_id, book_id)"
-                " select active, start_date, end_date, area_id, :new_book_id"
+                "insert into book_area(active, area_id, book_id)"
+                " select active, area_id, :new_book_id"
                 " from book_area where book_id=:book_id"), book_id=book_id, new_book_id=new_book_id)
         else:
             logger.info('Area Book already created :%s', new_book_id)
